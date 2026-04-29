@@ -8,6 +8,16 @@ function clearDetails(){ $('#details').textContent=''; state.report=[]; }
 function addReport(type,msg,obj){ const row={time:new Date().toISOString(),type,msg,obj:obj||null}; state.report.push(row); if(type !== 'debug') detail(`${type==='error'?'✗':type==='warn'?'!':'✓'} ${msg}`); }
 function setProgress(done,total){ const pct = total ? Math.round((done/total)*100) : 0; $('#bar').style.width = `${Math.max(0,Math.min(100,pct))}%`; }
 function showSummary(items){ $('#summary').innerHTML = items.map(([label,value]) => `<div class="summary-card"><strong>${value}</strong><span>${label}</span></div>`).join(''); }
+function normalizeText(s){ return String(s ?? '').trim().replace(/\s+/g,' '); }
+function normKey(artist, album){ return `${normalizeText(artist).toLowerCase()}|||${normalizeText(album).toLowerCase()}`; }
+function splitEntryKey(key){ const parts=String(key).replace(/^fallback(?::fallback(?::fallback)?)?:/,'').split('|||'); return {artist:normalizeText(parts[0] || ''), album:normalizeText(parts.slice(1).join('|||') || '')}; }
+function codeValue(v){ return normalizeText(v).toUpperCase(); }
+function pick(...vals){ for(const v of vals){ if(v!==undefined && v!==null && v!=='' && !(Array.isArray(v)&&!v.length)) return v; } return null; }
+function toBool(v){ return v===true || v===1 || v==='1' || v==='true'; }
+function ratingToReaction(r){ r=Number(r||0); if(r>=3) return 'favorite'; if(r===2) return 'liked'; if(r===1) return 'disliked'; return null; }
+function yearValue(v){ const n=Number(v); return Number.isFinite(n) && n>0 ? n : null; }
+function discogsIdFromUrl(url){ const m=String(url||'').match(/discogs\.com\/(?:[^/]+\/)?(release|master)\/(\d+)/i); return m?{type:m[1].toLowerCase(),id:m[2]}:null; }
+function hasMetadata(e){ return !!(e && !e.empty && (e.id || e.discogsId || e.coverUrl || e.genre || (Array.isArray(e.tracklist)&&e.tracklist.length) || e.dgUrl || e.year || e.label || e.country)); }
 
 async function init(){
   const {data} = await SB.auth.getSession(); state.session=data.session;
@@ -29,108 +39,81 @@ async function readDbFile(){
   if(!db || !db.entries) throw new Error('Could not find window.VINYL_ARCHIVE_DISCOGS_DB.entries in that file.');
   state.db=db; return db;
 }
-function normalizeText(s){ return String(s ?? '').trim().replace(/\s+/g,' '); }
-function normKey(artist, album){ return `${normalizeText(artist).toLowerCase()}|||${normalizeText(album).toLowerCase()}`; }
-function splitEntryKey(key){ const parts=String(key).split('|||'); return {artist:normalizeText(parts[0] || 'Unknown Artist'), album:normalizeText(parts.slice(1).join('|||') || 'Unknown Album')}; }
-function isImportableEntry(e){
-  if(!e || e.empty === true) return false;
-  return !!(e.id || e.coverUrl || e.dgUrl || e.tracklist || e.genre || e.genres || e.styles || e.year || e.label || e.country || e.code || e.shelfId || e.shelf_id);
+function allShelfRecords(db){
+  const rows=[];
+  for(const [key,o] of Object.entries(db.recordOverrides||{})){
+    const code=codeValue(o.code || key);
+    if(!code) continue;
+    rows.push({kind:'override',key,code,record:o});
+  }
+  const customs = Array.isArray(db.customRecords) ? db.customRecords.map((r,i)=>[String(i),r]) : Object.entries(db.customRecords||{});
+  for(const [key,o] of customs){
+    const code=codeValue(o && o.code);
+    if(!code) continue;
+    rows.push({kind:'custom',key,code,record:o});
+  }
+  const byCode=new Map();
+  for(const row of rows) byCode.set(row.code,row);
+  return [...byCode.values()].sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
 }
-function isMeaningfulOverride(o){
-  if(!o) return false;
-  const artist=normalizeText(o.artist||o.last||'');
-  const album=normalizeText(o.album||'');
-  if(!artist || !album) return false;
-  return !!(o.code || o.dgUrl || o.img || o.note || o.listened || o.rating || o.grail || o.owned || o.copiesOwned || (Array.isArray(o.collections)&&o.collections.length));
+function buildIndexes(db){
+  const byCode=new Map(), byDiscogs=new Map(), byArtistAlbum=new Map();
+  let fallback=0, codeEntries=0, nonEmpty=0;
+  for(const [key,e] of Object.entries(db.entries||{})){
+    if(/^fallback(?::fallback(?::fallback)?)?:/.test(key)) fallback++;
+    if(/^code:/i.test(key)){ codeEntries++; byCode.set(codeValue(key.slice(5)), e); }
+    if(hasMetadata(e)){
+      nonEmpty++;
+      const did=pick(e.id,e.discogsId); const dtype=pick(e.type,e.discogs_type);
+      if(did) byDiscogs.set(`${String(dtype||'release').toLowerCase()}:${String(did)}`, e);
+      const fromUrl=discogsIdFromUrl(e.dgUrl || e.discogs_url);
+      if(fromUrl) byDiscogs.set(`${fromUrl.type}:${fromUrl.id}`, e);
+      const {artist,album}=splitEntryKey(key);
+      if(artist && album) byArtistAlbum.set(normKey(artist,album), e);
+    }
+  }
+  return {byCode,byDiscogs,byArtistAlbum,stats:{entriesTotal:Object.keys(db.entries||{}).length,fallback,codeEntries,nonEmpty}};
 }
-function candidateFromMap(map, artist, album){ const nk=normKey(artist,album); if(!map.has(nk)) map.set(nk,{artist:normalizeText(artist)||'Unknown Artist',album:normalizeText(album)||'Unknown Album',entry:null,entryKey:null,override:null,overrideKey:null,custom:null}); return map.get(nk); }
-
+function metadataForShelf(row, idx){
+  const codeMeta=idx.byCode.get(row.code);
+  if(hasMetadata(codeMeta)) return {metadata:codeMeta, source:`code:${row.code}`, method:'code'};
+  const urlInfo=discogsIdFromUrl(row.record.dgUrl || row.record.discogs_url);
+  if(urlInfo){
+    const via=idx.byDiscogs.get(`${urlInfo.type}:${urlInfo.id}`) || idx.byDiscogs.get(`release:${urlInfo.id}`) || idx.byDiscogs.get(`master:${urlInfo.id}`);
+    if(hasMetadata(via)) return {metadata:via, source:`discogs:${urlInfo.type}:${urlInfo.id}`, method:'discogs_url'};
+  }
+  const aa=idx.byArtistAlbum.get(normKey(row.record.artist||row.record.last,row.record.album));
+  if(hasMetadata(aa)) return {metadata:aa, source:`${row.record.artist}|||${row.record.album}`, method:'artist_album'};
+  return {metadata:codeMeta||{}, source:`code:${row.code}`, method:'shelf_only'};
+}
 function buildImportPlan(db){
-  const entries=Object.entries(db.entries||{}); const overrides=Object.entries(db.recordOverrides||{}); const customs=Array.isArray(db.customRecords)?db.customRecords: Object.values(db.customRecords||{});
-  const map=new Map(); let emptySkipped=0, enrichedEntries=0;
-  for(const [entryKey,e] of entries){
-    const {artist,album}=splitEntryKey(entryKey);
-    if(e && e.empty === true){ emptySkipped++; continue; }
-    if(!isImportableEntry(e)){ emptySkipped++; continue; }
-    enrichedEntries++;
-    const c=candidateFromMap(map,artist,album); c.entry=e; c.entryKey=entryKey;
+  const shelf=allShelfRecords(db);
+  const idx=buildIndexes(db);
+  const candidates=[]; const counts={code:0,discogs_url:0,artist_album:0,shelf_only:0,withTracklist:0,withCover:0,withGenre:0,withDgUrl:0};
+  for(const row of shelf){
+    const found=metadataForShelf(row,idx);
+    counts[found.method]++;
+    const meta=found.metadata||{};
+    if(Array.isArray(meta.tracklist)&&meta.tracklist.length) counts.withTracklist++;
+    if(meta.coverUrl||meta.cover_url) counts.withCover++;
+    if(meta.genre) counts.withGenre++;
+    if(meta.dgUrl||meta.discogs_url||row.record.dgUrl) counts.withDgUrl++;
+    candidates.push({...row, metadata:meta, metadataSource:found.source, matchMethod:found.method});
   }
-  let overridesMerged=0, overridesNew=0, overridesSkipped=0;
-  for(const [overrideKey,o] of overrides){
-    if(!isMeaningfulOverride(o)){ overridesSkipped++; continue; }
-    const artist=normalizeText(o.artist||o.last||'Unknown Artist'); const album=normalizeText(o.album||'Unknown Album');
-    const existed=map.has(normKey(artist,album)); const c=candidateFromMap(map,artist,album); c.override=o; c.overrideKey=overrideKey; existed?overridesMerged++:overridesNew++;
-  }
-  let customMerged=0, customNew=0;
-  for(const cst of customs){
-    if(!cst || (!cst.artist && !cst.album)) continue;
-    const artist=normalizeText(cst.artist||'Unknown Artist'); const album=normalizeText(cst.album||'Unknown Album');
-    const existed=map.has(normKey(artist,album)); const c=candidateFromMap(map,artist,album); c.custom=cst; existed?customMerged++:customNew++;
-  }
-  const candidates=[...map.values()].sort((a,b)=>`${a.artist} ${a.album}`.localeCompare(`${b.artist} ${b.album}`));
-  const stats={
-    dbVersion:db.version ?? 'unknown', exportedAt:db.exportedAt || 'unknown',
-    entriesTotal:entries.length, emptySkipped, enrichedEntries,
-    overridesTotal:overrides.length, overridesMerged, overridesNew, overridesSkipped,
-    customTotal:customs.length, customMerged, customNew,
-    uniqueToImport:candidates.length
-  };
-  return {stats,candidates};
+  return {stats:{dbVersion:db.version??'unknown',exportedAt:db.exportedAt||'unknown',shelfIdRecords:shelf.length,recordOverrides:Object.keys(db.recordOverrides||{}).length,customRecords:Array.isArray(db.customRecords)?db.customRecords.length:Object.keys(db.customRecords||{}).length,...idx.stats,...counts},candidates};
 }
-
-function pick(...vals){ for(const v of vals){ if(v!==undefined && v!==null && v!=='') return v; } return null; }
-function numOrNull(v){ if(v===undefined||v===null||v==='') return null; const n=Number(v); return Number.isFinite(n)?n:null; }
-function toBool(v){ return v===true || v===1 || v==='1' || v==='true'; }
-function ratingToLiked(v){ const n=Number(v); return Number.isFinite(n) ? n>0 : toBool(v); }
-function yearValue(v){ const n=numOrNull(v); return n && n>0 ? n : null; }
-function collectionIdsForCandidate(c){
-  const ids=[]; for(const src of [c.override,c.custom,c.entry]){ if(!src) continue; const raw=src.collections||src.collectionIds||src.collection_ids||[]; if(Array.isArray(raw)) ids.push(...raw); }
-  return [...new Set(ids.map(String).filter(Boolean))];
-}
-function candidateToRecord(c, uid){
-  const base=c.entry||{}; const ov=c.override||{}; const custom=c.custom||{}; const merged={...base,...ov,...custom};
-  const sourceKey = c.entryKey || c.overrideKey || normKey(c.artist,c.album);
-  const raw_data={source_key:sourceKey, entry_key:c.entryKey, override_key:c.overrideKey, entry:c.entry, override:c.override, custom:c.custom};
-  return {
-    user_id:uid,
-    artist:normalizeText(pick(custom.artist,ov.artist,c.artist,'Unknown Artist')),
-    album:normalizeText(pick(custom.album,ov.album,c.album,'Unknown Album')),
-    shelf_id:pick(custom.code,ov.code,base.code,base.shelfId,base.shelf_id),
-    copies_owned:Math.max(1,Number(pick(custom.owned,custom.copiesOwned,ov.owned,ov.copiesOwned,base.owned,base.copiesOwned,1))||1),
-    grail:toBool(pick(custom.grail,ov.grail,base.grail,false)),
-    listened:toBool(pick(custom.listened,ov.listened,base.listened,false)),
-    liked:ratingToLiked(pick(custom.liked,ov.liked,base.liked,custom.rating,ov.rating,base.rating,0)),
-    reaction:pick(custom.reaction,ov.reaction,base.reaction,custom.rating,ov.rating,base.rating),
-    listened_at:pick(custom.listenedAt,custom.listened_at,ov.listenedAt,ov.listened_at,base.listenedAt,base.listened_at),
-    discogs_id:pick(base.id,custom.id,ov.id) ? String(pick(base.id,custom.id,ov.id)) : null,
-    discogs_type:pick(base.type,custom.type,ov.type),
-    cover_url:pick(base.coverUrl,base.cover_url,custom.coverUrl,custom.cover_url,custom.img,ov.coverUrl,ov.cover_url,ov.img),
-    genre:pick(base.genre,custom.genre,ov.genre),
-    genres:Array.isArray(pick(base.genres,custom.genres,ov.genres)) ? pick(base.genres,custom.genres,ov.genres) : [],
-    styles:Array.isArray(pick(base.styles,custom.styles,ov.styles)) ? pick(base.styles,custom.styles,ov.styles) : [],
-    tracklist:Array.isArray(pick(custom.tracklist,base.tracklist,ov.tracklist)) ? pick(custom.tracklist,base.tracklist,ov.tracklist) : [],
-    discogs_url:pick(custom.dgUrl,custom.discogs_url,ov.dgUrl,ov.discogs_url,base.dgUrl,base.discogs_url),
-    release_year:yearValue(pick(base.year,custom.year,ov.year)),
-    label:pick(base.label,custom.label,ov.label),
-    country:pick(base.country,custom.country,ov.country),
-    source_key:sourceKey,
-    raw_data
-  };
-}
-
 function renderPlan(plan){
   const s=plan.stats;
   showSummary([
-    ['entries in file',s.entriesTotal],['empty placeholders skipped',s.emptySkipped],['enriched entries',s.enrichedEntries],['record overrides',s.overridesTotal],['override-only records',s.overridesNew],['custom records',s.customTotal],['unique records to import',s.uniqueToImport]
+    ['Shelf ID records',s.shelfIdRecords],['code entries',s.codeEntries],['matched by code',s.code],['other matches',s.discogs_url+s.artist_album],['shelf-only / not found',s.shelf_only],['with tracklist',s.withTracklist],['with cover',s.withCover],['fallback entries ignored',s.fallback]
   ]);
-  detail(`DB version: ${s.dbVersion}`); detail(`Exported at: ${s.exportedAt}`); detail(`Unique Artist + Album records planned: ${s.uniqueToImport}`);
+  detail(`DB version: ${s.dbVersion}`); detail(`Exported at: ${s.exportedAt}`); detail(`Shelf ID records planned: ${s.shelfIdRecords}`);
 }
 async function analyzeSelectedDb(){
-  try{ clearDetails(); setProgress(0,1); log('Analyzing DB...'); const db=await readDbFile(); const plan=buildImportPlan(db); state.plan=plan; renderPlan(plan); setProgress(1,1); log(`Analysis complete: ${plan.stats.uniqueToImport} unique records ready for import.`); }
+  try{ clearDetails(); setProgress(0,1); log('Analyzing DB...'); const db=await readDbFile(); const plan=buildImportPlan(db); state.plan=plan; renderPlan(plan); setProgress(1,1); log(`Analysis complete: ${plan.stats.shelfIdRecords} Shelf ID records ready.`); }
   catch(e){ log(`Analysis failed: ${e.message}`); addReport('error',e.message); }
 }
 async function ensurePlan(){ if(!state.plan){ const db=await readDbFile(); state.plan=buildImportPlan(db); renderPlan(state.plan); } return state.plan; }
-
 async function ensureCollections(db){
   const uid=state.session.user.id; const map=new Map();
   const source=(db.user&&Array.isArray(db.user.collections))?db.user.collections:[];
@@ -144,20 +127,58 @@ async function ensureCollections(db){
   }
   return map;
 }
-async function wipeMine(){
-  if(!state.session) return log('Sign in first.');
-  const ok=confirm('This deletes YOUR imported record rows, collection links, and collections from Supabase. It does not delete tables or other users. Continue?');
-  if(!ok) return;
-  try{
-    clearDetails(); log('Wiping your imported data...'); setProgress(0,3); const uid=state.session.user.id;
-    let r=await SB.from('record_collections').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(1,3); addReport('ok','Deleted your record/collection links.');
-    r=await SB.from('records').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(2,3); addReport('ok','Deleted your records.');
-    r=await SB.from('collections').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(3,3); addReport('ok','Deleted your collections.');
-    await SB.from('change_log').insert({user_id:uid,action:'import_v3_wipe',before_data:null,after_data:{wiped_at:new Date().toISOString()}});
-    log('Wipe complete. Change log history is kept because the current schema intentionally has no delete permission for change_log.');
-  }catch(e){ log(`Wipe failed: ${e.message}`); addReport('error',`Wipe failed: ${e.message}`); }
+function collectionIdsForCandidate(c){
+  const ids=[];
+  for(const src of [c.record,c.metadata]){ if(!src) continue; const raw=src.collections||src.collectionIds||src.collection_ids||[]; if(Array.isArray(raw)) ids.push(...raw); }
+  return [...new Set(ids.map(String).filter(Boolean))];
+}
+function candidateToRecord(c,uid){
+  const ov=c.record||{}, m=c.metadata||{};
+  const rating=Number(pick(ov.rating,m.rating,0)||0);
+  const dgUrl=pick(ov.dgUrl,ov.discogs_url,m.dgUrl,m.discogs_url);
+  const discogsId=pick(m.discogsId,m.id,ov.discogsId,ov.id);
+  const raw_data={shelf_record:ov,metadata:m,metadata_source:c.metadataSource,match_method:c.matchMethod,kind:c.kind};
+  return {
+    user_id:uid,
+    artist:normalizeText(pick(ov.artist,m.artist,ov.last,'Unknown Artist')),
+    album:normalizeText(pick(ov.album,m.album,'Unknown Album')),
+    shelf_id:c.code,
+    copies_owned:Math.max(1,Number(pick(ov.owned,ov.copiesOwned,m.owned,m.copiesOwned,1))||1),
+    note:pick(ov.note,m.note),
+    grail:toBool(pick(ov.grail,m.grail,false)),
+    listened:toBool(pick(ov.listened,m.listened,false)),
+    liked:rating>=2 || toBool(pick(ov.liked,m.liked,false)),
+    reaction:ratingToReaction(rating) || pick(ov.reaction,m.reaction),
+    listened_at:pick(ov.listenedAt,ov.listened_at,m.listenedAt,m.listened_at),
+    discogs_id:discogsId ? String(discogsId) : null,
+    discogs_type:pick(m.type,m.discogs_type,ov.type,ov.discogs_type),
+    cover_url:pick(ov.img,ov.coverUrl,ov.cover_url,m.coverUrl,m.cover_url,m.img),
+    genre:pick(m.genre,ov.genre),
+    genres:Array.isArray(pick(m.genres,ov.genres)) ? pick(m.genres,ov.genres) : [],
+    styles:Array.isArray(pick(m.styles,ov.styles)) ? pick(m.styles,ov.styles) : [],
+    tracklist:Array.isArray(pick(ov.tracklist,m.tracklist)) ? pick(ov.tracklist,m.tracklist) : [],
+    discogs_url:dgUrl,
+    release_year:yearValue(pick(m.year,ov.year)),
+    label:pick(m.label,ov.label),
+    country:pick(m.country,ov.country),
+    source_key:`code:${c.code}`,
+    raw_data
+  };
 }
 function chunk(arr,size){ const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; }
+async function wipeMine(){
+  if(!state.session) return log('Sign in first.');
+  const ok=confirm('This deletes YOUR Dead Wax records, record/collection links, and collections from Supabase. Continue?');
+  if(!ok) return;
+  try{
+    clearDetails(); log('Wiping your Supabase records...'); setProgress(0,3); const uid=state.session.user.id;
+    let r=await SB.from('record_collections').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(1,3); addReport('ok','Deleted record/collection links.');
+    r=await SB.from('records').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(2,3); addReport('ok','Deleted records.');
+    r=await SB.from('collections').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(3,3); addReport('ok','Deleted collections.');
+    await SB.from('change_log').insert({user_id:uid,action:'shelf_import_wipe',before_data:null,after_data:{wiped_at:new Date().toISOString()}});
+    log('Wipe complete.');
+  }catch(e){ log(`Wipe failed: ${e.message}`); addReport('error',`Wipe failed: ${e.message}`); }
+}
 async function importSelectedDb(){
   if(!state.session) return log('Sign in first.');
   try{
@@ -168,35 +189,35 @@ async function importSelectedDb(){
     let imported=0, failed=0; const importedRows=[];
     for(let i=0;i<batches.length;i++){
       const batch=batches[i]; log(`Importing records batch ${i+1}/${batches.length}...`);
-      const {data,error}=await SB.from('records').upsert(batch,{onConflict:'user_id,artist,album'}).select('id,artist,album,source_key');
+      const {data,error}=await SB.from('records').upsert(batch,{onConflict:'user_id,shelf_id'}).select('id,artist,album,shelf_id');
       if(error){ failed+=batch.length; addReport('error',`Batch ${i+1} failed: ${error.message}`,{batchStart:i*100,batchSize:batch.length}); }
-      else { imported+=data.length; importedRows.push(...data); addReport('ok',`Batch ${i+1}: ${data.length} records upserted.`); }
+      else { imported+=data.length; importedRows.push(...data); addReport('ok',`Batch ${i+1}: ${data.length} Shelf ID records upserted.`); }
       setProgress(i+1,batches.length+2);
     }
-    const idByNorm=new Map(importedRows.map(r=>[normKey(r.artist,r.album),r.id]));
-    let links=0, linkFail=0;
+    const idByCode=new Map(importedRows.map(r=>[codeValue(r.shelf_id),r.id]));
     const linkRows=[];
     for(const c of plan.candidates){
-      const rid=idByNorm.get(normKey(c.artist,c.album)); if(!rid) continue;
+      const rid=idByCode.get(c.code); if(!rid) continue;
       const colIds=collectionIdsForCandidate(c).map(x=>colMap.get(x)).filter(Boolean);
       for(const cid of [...new Set(colIds)]) linkRows.push({user_id:uid,record_id:rid,collection_id:cid});
     }
+    let links=0, linkFail=0;
     for(const [idx,batch] of chunk(linkRows,250).entries()){
       if(!batch.length) continue;
       const {error}=await SB.from('record_collections').upsert(batch,{onConflict:'record_id,collection_id'});
       if(error){ linkFail+=batch.length; addReport('error',`Collection link batch ${idx+1} failed: ${error.message}`); }
-      else { links+=batch.length; }
+      else links+=batch.length;
     }
     setProgress(batches.length+1,batches.length+2);
-    const summary={expected_unique:records.length, imported, failed, collection_links:links, collection_link_failures:linkFail, skipped_empty_archive_placeholders:plan.stats.emptySkipped, enriched_entries:plan.stats.enrichedEntries, override_only_records:plan.stats.overridesNew, db_version:db.version, exported_at:db.exportedAt, imported_at:new Date().toISOString()};
-    const {error:logErr}=await SB.from('change_log').insert({user_id:uid,action:'import_v3_unique_nonempty_records_only',before_data:null,after_data:summary});
+    const summary={expected_shelf_records:records.length, imported, failed, collection_links:links, collection_link_failures:linkFail, stats:plan.stats, imported_at:new Date().toISOString()};
+    const {error:logErr}=await SB.from('change_log').insert({user_id:uid,action:'shelf_id_code_metadata_import',before_data:null,after_data:summary});
     if(logErr) addReport('warn',`Import summary change_log failed: ${logErr.message}`); else addReport('ok','Import summary written to change_log.');
-    setProgress(1,1); showSummary([['expected unique',records.length],['records imported/upserted',imported],['failed',failed],['collection links',links],['link failures',linkFail]]);
-    log(`Import v3 complete: ${imported}/${records.length} records imported, ${failed} failed.`);
+    setProgress(1,1); showSummary([['Shelf ID records',records.length],['upserted',imported],['failed',failed],['collection links',links],['link failures',linkFail],['shelf-only',plan.stats.shelf_only]]);
+    log(`Import complete: ${imported}/${records.length} records imported, ${failed} failed.`);
   }catch(e){ log(`Import failed: ${e.message}`); addReport('error',`Import failed: ${e.message}`); }
 }
 function downloadReport(){
   const blob=new Blob([JSON.stringify({generated_at:new Date().toISOString(),summary:state.plan?.stats||null,report:state.report},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='dead_wax_import_v3_report.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='dead_wax_shelf_id_import_report.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 init();
