@@ -1,3 +1,0 @@
-Do not commit dead_wax_db.js to the public GitHub repository.
-This Supabase version stores records behind authentication and Row Level Security.
-Use importer.html to import your local DB into your Supabase account.
