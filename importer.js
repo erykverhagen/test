@@ -32,8 +32,17 @@ async function readDbFile(){
 function normalizeText(s){ return String(s ?? '').trim().replace(/\s+/g,' '); }
 function normKey(artist, album){ return `${normalizeText(artist).toLowerCase()}|||${normalizeText(album).toLowerCase()}`; }
 function splitEntryKey(key){ const parts=String(key).split('|||'); return {artist:normalizeText(parts[0] || 'Unknown Artist'), album:normalizeText(parts.slice(1).join('|||') || 'Unknown Album')}; }
-function hasMeaningfulEntry(e){ return !!(e && !e.empty) || !!(e && (e.id || e.coverUrl || e.dgUrl || e.tracklist || e.genre || e.genres || e.styles)); }
-function isMeaningfulOverride(o){ return !!(o && (o.artist || o.album || o.code || o.dgUrl || o.img || o.note || o.listened || o.rating || o.grail || (Array.isArray(o.collections)&&o.collections.length))); }
+function isImportableEntry(e){
+  if(!e || e.empty === true) return false;
+  return !!(e.id || e.coverUrl || e.dgUrl || e.tracklist || e.genre || e.genres || e.styles || e.year || e.label || e.country || e.code || e.shelfId || e.shelf_id);
+}
+function isMeaningfulOverride(o){
+  if(!o) return false;
+  const artist=normalizeText(o.artist||o.last||'');
+  const album=normalizeText(o.album||'');
+  if(!artist || !album) return false;
+  return !!(o.code || o.dgUrl || o.img || o.note || o.listened || o.rating || o.grail || o.owned || o.copiesOwned || (Array.isArray(o.collections)&&o.collections.length));
+}
 function candidateFromMap(map, artist, album){ const nk=normKey(artist,album); if(!map.has(nk)) map.set(nk,{artist:normalizeText(artist)||'Unknown Artist',album:normalizeText(album)||'Unknown Album',entry:null,entryKey:null,override:null,overrideKey:null,custom:null}); return map.get(nk); }
 
 function buildImportPlan(db){
@@ -41,7 +50,8 @@ function buildImportPlan(db){
   const map=new Map(); let emptySkipped=0, enrichedEntries=0;
   for(const [entryKey,e] of entries){
     const {artist,album}=splitEntryKey(entryKey);
-    if(!hasMeaningfulEntry(e)){ emptySkipped++; continue; }
+    if(e && e.empty === true){ emptySkipped++; continue; }
+    if(!isImportableEntry(e)){ emptySkipped++; continue; }
     enrichedEntries++;
     const c=candidateFromMap(map,artist,album); c.entry=e; c.entryKey=entryKey;
   }
@@ -143,7 +153,7 @@ async function wipeMine(){
     let r=await SB.from('record_collections').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(1,3); addReport('ok','Deleted your record/collection links.');
     r=await SB.from('records').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(2,3); addReport('ok','Deleted your records.');
     r=await SB.from('collections').delete().eq('user_id',uid); if(r.error) throw r.error; setProgress(3,3); addReport('ok','Deleted your collections.');
-    await SB.from('change_log').insert({user_id:uid,action:'import_v2_wipe',before_data:null,after_data:{wiped_at:new Date().toISOString()}});
+    await SB.from('change_log').insert({user_id:uid,action:'import_v3_wipe',before_data:null,after_data:{wiped_at:new Date().toISOString()}});
     log('Wipe complete. Change log history is kept because the current schema intentionally has no delete permission for change_log.');
   }catch(e){ log(`Wipe failed: ${e.message}`); addReport('error',`Wipe failed: ${e.message}`); }
 }
@@ -178,15 +188,15 @@ async function importSelectedDb(){
       else { links+=batch.length; }
     }
     setProgress(batches.length+1,batches.length+2);
-    const summary={expected_unique:records.length, imported, failed, collection_links:links, collection_link_failures:linkFail, db_version:db.version, exported_at:db.exportedAt, imported_at:new Date().toISOString()};
-    const {error:logErr}=await SB.from('change_log').insert({user_id:uid,action:'import_v2_unique_records_only',before_data:null,after_data:summary});
+    const summary={expected_unique:records.length, imported, failed, collection_links:links, collection_link_failures:linkFail, skipped_empty_archive_placeholders:plan.stats.emptySkipped, enriched_entries:plan.stats.enrichedEntries, override_only_records:plan.stats.overridesNew, db_version:db.version, exported_at:db.exportedAt, imported_at:new Date().toISOString()};
+    const {error:logErr}=await SB.from('change_log').insert({user_id:uid,action:'import_v3_unique_nonempty_records_only',before_data:null,after_data:summary});
     if(logErr) addReport('warn',`Import summary change_log failed: ${logErr.message}`); else addReport('ok','Import summary written to change_log.');
     setProgress(1,1); showSummary([['expected unique',records.length],['records imported/upserted',imported],['failed',failed],['collection links',links],['link failures',linkFail]]);
-    log(`Import v2 complete: ${imported}/${records.length} records imported, ${failed} failed.`);
+    log(`Import v3 complete: ${imported}/${records.length} records imported, ${failed} failed.`);
   }catch(e){ log(`Import failed: ${e.message}`); addReport('error',`Import failed: ${e.message}`); }
 }
 function downloadReport(){
   const blob=new Blob([JSON.stringify({generated_at:new Date().toISOString(),summary:state.plan?.stats||null,report:state.report},null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='dead_wax_import_v2_report.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='dead_wax_import_v3_report.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 init();

@@ -10,7 +10,39 @@ function setAuthMode(m){authMode=m; $('#tabSignIn').classList.toggle('on',m==='s
 async function handleAuth(e){e.preventDefault(); const email=$('#authEmail').value.trim(), password=$('#authPassword').value; msg($('#authMsg'),authMode==='signin'?'Signing in...':'Creating account...'); const res=authMode==='signin'? await SB.auth.signInWithPassword({email,password}) : await SB.auth.signUp({email,password,options:{data:{display_name:email.split('@')[0]}}}); if(res.error){msg($('#authMsg'),res.error.message,'err');return} session=res.data.session; msg($('#authMsg'),'Done','ok'); renderShell(); await loadAll();}
 function bindApp(){ $('#signOutBtn').onclick=async()=>{await SB.auth.signOut(); location.reload()}; ['searchInput','collectionFilter','genreFilter','reactionFilter','listenedFilter','doublesFilter','grailFilter'].forEach(id=>$('#'+id).addEventListener('input',render)); $('#addRecordBtn').onclick=()=>openEditor(); }
 function renderShell(){ const on=!!session; $('#authShell').classList.toggle('hidden',on); $('#appShell').classList.toggle('hidden',!on); if(on) $('#userEmail').textContent=session.user.email; }
-async function loadAll(){ $('#syncMsg').textContent='Loading...'; const uid=session.user.id; const [r,c,l]=await Promise.all([SB.from('records').select('*').order('artist'),SB.from('collections').select('*').order('name'),SB.from('record_collections').select('*')]); if(r.error||c.error||l.error){$('#syncMsg').textContent=(r.error||c.error||l.error).message;return} records=r.data||[]; collections=c.data||[]; links=l.data||[]; await ensureDefaultCollections(uid); buildFilters(); render(); $('#syncMsg').textContent='Synced';}
+async function fetchAll(table, select='*', orderCol=null){
+  const pageSize=1000;
+  let from=0;
+  let all=[];
+  while(true){
+    let q=SB.from(table).select(select).range(from, from+pageSize-1);
+    if(orderCol) q=q.order(orderCol);
+    const {data,error}=await q;
+    if(error) throw error;
+    const rows=data||[];
+    all=all.concat(rows);
+    if(rows.length<pageSize) break;
+    from+=pageSize;
+  }
+  return all;
+}
+async function loadAll(){
+  $('#syncMsg').textContent='Loading all pages...';
+  const uid=session.user.id;
+  try{
+    const [r,c,l]=await Promise.all([
+      fetchAll('records','*','artist'),
+      fetchAll('collections','*','name'),
+      fetchAll('record_collections','*',null)
+    ]);
+    records=r; collections=c; links=l;
+    await ensureDefaultCollections(uid);
+    buildFilters(); render();
+    $('#syncMsg').textContent=`Synced ${records.length} records`;
+  }catch(e){
+    $('#syncMsg').textContent=e.message;
+  }
+}
 async function ensureDefaultCollections(uid){ if(collections.length) return; for(const name of ["Dad's Collection","Augmented Collection"]){const {data,error}=await SB.from('collections').insert({user_id:uid,name,locked:false,source_id:name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}).select().single(); if(!error) collections.push(data);} }
 function buildFilters(){ const cf=$('#collectionFilter'), current=cf.value; cf.innerHTML='<option value="">All collections</option>'+collections.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join(''); cf.value=current; const genres=[...new Set(records.flatMap(r=>[r.genre,...(Array.isArray(r.genres)?r.genres:[])].filter(Boolean)))].sort(); const gf=$('#genreFilter'), gv=gf.value; gf.innerHTML='<option value="">All genres</option>'+genres.map(g=>`<option>${esc(g)}</option>`).join(''); gf.value=gv; }
 function recordCollectionIds(id){return links.filter(l=>l.record_id===id).map(l=>l.collection_id)}
