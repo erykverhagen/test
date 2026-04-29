@@ -1,138 +1,19 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dead Wax · Supabase Smoke Test</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root{--bg:#0b0906;--s1:#151008;--s2:#20170d;--s3:#2b2114;--gold:#d09a24;--gl:#f0c34f;--cream:#f4ead2;--mt:#a28763;--bd:#432912;--red:#d25145;}
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#2b2114 0,#0b0906 42rem);color:var(--cream);font-family:Jost,sans-serif;display:grid;place-items:center;padding:2rem}
-    main{width:min(760px,100%);background:rgba(21,16,8,.94);border:1px solid var(--bd);border-radius:24px;box-shadow:0 30px 90px rgba(0,0,0,.55);padding:2rem}
-    h1{font-family:'Cormorant Garamond',serif;color:var(--gl);font-size:2.2rem;line-height:1;margin:0 0 .4rem} p{color:var(--mt);line-height:1.55} .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.4rem}.card{background:var(--s2);border:1px solid var(--bd);border-radius:16px;padding:1rem} label{display:block;font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mt);font-weight:600;margin:.7rem 0 .25rem} input{width:100%;background:var(--s1);border:1px solid var(--bd);border-radius:8px;color:var(--cream);padding:.72rem .8rem;font:inherit} button{border:1px solid var(--gold);background:var(--gold);color:#0b0906;border-radius:9px;padding:.72rem .9rem;font:inherit;font-weight:700;cursor:pointer;margin:.65rem .4rem 0 0}button.secondary{background:transparent;color:var(--gl)}button.danger{border-color:rgba(210,81,69,.5);background:transparent;color:#ffb4ae}.log{white-space:pre-wrap;background:#070604;border:1px solid var(--bd);border-radius:14px;padding:1rem;min-height:180px;color:#d8c7a9;font:13px ui-monospace,SFMono-Regular,Menlo,monospace;overflow:auto}.ok{color:#91d18b}.bad{color:#ff8b7c}.pill{display:inline-flex;align-items:center;gap:.4rem;border:1px solid var(--bd);border-radius:999px;padding:.25rem .55rem;color:var(--mt);font-size:.78rem}.dot{width:.5rem;height:.5rem;border-radius:999px;background:var(--red)}.dot.on{background:#7ad17a}@media(max-width:720px){.grid{grid-template-columns:1fr}main{padding:1.2rem}}
-  </style>
-</head>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dead Wax</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"></head>
 <body>
-<main>
-  <span class="pill"><span id="statusDot" class="dot"></span><span id="statusText">Not signed in</span></span>
-  <h1>Dead Wax Supabase Smoke Test</h1>
-  <p>This checks sign-up/sign-in, per-user record writes, record reads, and change-log writes. It does not expose your private DB.</p>
-  <div class="grid">
-    <section class="card">
-      <h2>Sign in</h2>
-      <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="email" placeholder="you@example.com" />
-      <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="current-password" placeholder="Minimum 6 characters" />
-      <button id="signUpBtn" type="button">Create account</button>
-      <button id="signInBtn" type="button" class="secondary">Sign in</button>
-      <button id="signOutBtn" type="button" class="danger">Sign out</button>
-    </section>
-    <section class="card">
-      <h2>Database test</h2>
-      <p>Create a tiny test record for the signed-in user, then read only your own records.</p>
-      <button id="writeBtn" type="button">Write test record</button>
-      <button id="readBtn" type="button" class="secondary">Read my records</button>
-      <button id="logBtn" type="button" class="secondary">Read change log</button>
-    </section>
+<section id="authShell" class="auth-shell">
+  <div class="auth-card"><div class="mark">DW</div><h1>Dead Wax</h1><div class="tag">A private vinyl archive</div>
+    <div class="auth-tabs"><button type="button" id="tabSignIn" class="auth-tab on">Sign in</button><button type="button" id="tabSignUp" class="auth-tab">Sign up</button></div>
+    <form id="authForm"><div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email" required></div><div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="current-password" required></div><button type="submit" id="authSubmit" class="btn primary" style="width:100%">Sign in</button></form>
+    <p class="msg" id="authMsg"></p><p class="notice">Email/password is temporary for the test build. Google/Apple or magic link can replace this later without changing the database.</p>
   </div>
-  <h2>Output</h2>
-  <div id="log" class="log">Waiting for smoke...</div>
-</main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="./supabase-config.js"></script>
-<script>
-const cfg = window.DEAD_WAX_SUPABASE;
-const client = window.supabase.createClient(cfg.url, cfg.anonKey);
-const $ = (id) => document.getElementById(id);
-function log(msg, type=''){
-  const prefix = type === 'ok' ? '✓ ' : type === 'bad' ? '✗ ' : '• ';
-  $('log').textContent += `\n${prefix}${msg}`;
-  $('log').scrollTop = $('log').scrollHeight;
-}
-function resetLog(msg='Ready.'){$('log').textContent = msg;}
-async function setStatus(){
-  const { data } = await client.auth.getUser();
-  const user = data && data.user;
-  $('statusText').textContent = user ? `Signed in as ${user.email}` : 'Not signed in';
-  $('statusDot').classList.toggle('on', !!user);
-}
-async function requireUser(){
-  const { data, error } = await client.auth.getUser();
-  if(error || !data.user) throw new Error('You need to sign in first.');
-  return data.user;
-}
-$('signUpBtn').onclick = async () => {
-  resetLog('Creating account...');
-  const email=$('email').value.trim(), password=$('password').value;
-  const { data, error } = await client.auth.signUp({email,password});
-  if(error){ log(error.message,'bad'); return; }
-  log('Account created and signed in.','ok');
-  await setStatus();
-};
-$('signInBtn').onclick = async () => {
-  resetLog('Signing in...');
-  const email=$('email').value.trim(), password=$('password').value;
-  const { data, error } = await client.auth.signInWithPassword({email,password});
-  if(error){ log(error.message,'bad'); return; }
-  log('Signed in.','ok');
-  await setStatus();
-};
-$('signOutBtn').onclick = async () => {
-  resetLog('Signing out...');
-  const { error } = await client.auth.signOut();
-  if(error){ log(error.message,'bad'); return; }
-  log('Signed out.','ok');
-  await setStatus();
-};
-$('writeBtn').onclick = async () => {
-  resetLog('Writing a per-user test record...');
-  try{
-    const user = await requireUser();
-    const payload = {
-      user_id:user.id,
-      artist:'Dead Wax Smoke Test',
-      album:'Supabase Connection Check',
-      shelf_id:'TEST-001',
-      copies_owned:1,
-      grail:false,
-      listened:false,
-      liked:false,
-      source_key:`smoke-test-${user.id}`,
-      raw_data:{created_by:'dead_wax_smoke_test', created_at:new Date().toISOString()}
-    };
-    const { data: rec, error } = await client.from('records').upsert(payload,{onConflict:'user_id,artist,album'}).select().single();
-    if(error) throw error;
-    log(`Record write OK: ${rec.artist} — ${rec.album}`,'ok');
-    const { error: logErr } = await client.from('change_log').insert({user_id:user.id,record_id:rec.id,action:'smoke_test_upsert',before_data:null,after_data:rec});
-    if(logErr) throw logErr;
-    log('Change log write OK.','ok');
-  }catch(err){log(err.message,'bad')}
-};
-$('readBtn').onclick = async () => {
-  resetLog('Reading your records...');
-  try{
-    await requireUser();
-    const { data, error } = await client.from('records').select('artist, album, shelf_id, copies_owned, grail, updated_at').order('artist');
-    if(error) throw error;
-    log(`Read OK. You can see ${data.length} record(s).`,'ok');
-    data.slice(0,12).forEach(r => log(`${r.artist} — ${r.album} [${r.shelf_id||'no shelf'}]`));
-  }catch(err){log(err.message,'bad')}
-};
-$('logBtn').onclick = async () => {
-  resetLog('Reading your change log...');
-  try{
-    await requireUser();
-    const { data, error } = await client.from('change_log').select('action, created_at').order('created_at',{ascending:false}).limit(10);
-    if(error) throw error;
-    log(`Change log read OK. ${data.length} item(s).`,'ok');
-    data.forEach(r => log(`${r.created_at} · ${r.action}`));
-  }catch(err){log(err.message,'bad')}
-};
-client.auth.onAuthStateChange(() => setStatus());
-setStatus();
-</script>
-</body>
-</html>
+</section>
+<section id="appShell" class="hidden">
+<header class="app-header"><div class="topbar"><div class="brand"><div class="brand-disc"></div><div><div class="brand-main">Dead Wax</div><div class="brand-sub">A vinyl collection</div></div></div><div class="search"><input id="searchInput" placeholder="Search artist, album, Shelf ID"></div><div class="top-actions"><a class="btn small ghost" href="importer.html">Import DB</a><button type="button" id="addRecordBtn" class="btn small primary">Add record</button></div><div class="userbox"><span id="userEmail"></span><button type="button" id="signOutBtn" class="btn small">Sign out</button></div></div>
+  <div class="filters"><div class="fg"><label>Collection</label><select id="collectionFilter"><option value="">All collections</option></select></div><div class="fg"><label>Genre</label><select id="genreFilter"><option value="">All genres</option></select></div><div class="fg"><label>Reaction</label><select id="reactionFilter"><option value="">All reactions</option><option value="liked">Liked</option><option value="neutral">Neutral</option><option value="disliked">Disliked</option></select></div><div class="fg"><label>Listened</label><label class="check-wrap"><input id="listenedFilter" type="checkbox">Listened</label></div><div class="fg"><label>Doubles</label><label class="check-wrap"><input id="doublesFilter" type="checkbox">Copies &gt; 1</label></div><div class="fg"><label>Grail Only</label><label class="check-wrap"><input id="grailFilter" type="checkbox">Grail</label></div></div>
+</header>
+<main class="main"><div class="stats"><span><strong id="shownCount">0</strong> shown</span><span><strong id="totalCount">0</strong> total</span><span id="syncMsg"></span></div><div id="grid" class="grid"></div><div id="emptyState" class="empty hidden">No records found. Import your DB or add a record.</div></main>
+</section>
+<div id="modal" class="modal hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js"></script><script src="app.js"></script>
+</body></html>
