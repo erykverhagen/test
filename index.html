@@ -5322,6 +5322,17 @@ function updateGenreDd(){
 // ═══════════════════════════════════════════════════════
 // GROUPING
 // ═══════════════════════════════════════════════════════
+function shelfSortValue(rec){
+  return String(rec?.code || rec?.shelf_id || '');
+}
+function shelfIdCompare(a,b){
+  return shelfSortValue(a).localeCompare(shelfSortValue(b),undefined,{numeric:true,sensitivity:'base'});
+}
+function recordCompare(a,b){
+  return shelfIdCompare(a,b)
+    || String(a?.artist||'').localeCompare(String(b?.artist||''),undefined,{numeric:true,sensitivity:'base'})
+    || String(a?.album||'').localeCompare(String(b?.album||''),undefined,{numeric:true,sensitivity:'base'});
+}
 function groupRecords(recs){
   const groups={};
   recs.forEach(rec=>{
@@ -5336,9 +5347,16 @@ function groupRecords(recs){
     }
   });
   const entries=Object.entries(groups);
+  entries.forEach(([,items])=>{
+    items.sort((a,b)=>{
+      if(groupBy==='collection'){
+        return String(secondarySectionKeyForRecord(a.rec)).localeCompare(String(secondarySectionKeyForRecord(b.rec)),undefined,{numeric:true,sensitivity:'base'}) || recordCompare(a.rec,b.rec);
+      }
+      return recordCompare(a.rec,b.rec);
+    });
+  });
   if(groupBy==='decade') return entries.sort((a,b)=>decadeBucketOrder(a[0]) - decadeBucketOrder(b[0]));
   entries.sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true,sensitivity:'base'}));
-  if(groupBy==='collection') entries.forEach(([,items])=>items.sort((a,b)=>String(secondarySectionKeyForRecord(a.rec)).localeCompare(String(secondarySectionKeyForRecord(b.rec)),undefined,{numeric:true,sensitivity:'base'}) || String(a.rec.artist||'').localeCompare(String(b.rec.artist||''),undefined,{numeric:true,sensitivity:'base'})));
   return entries;
 }
 
