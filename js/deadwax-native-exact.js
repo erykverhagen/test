@@ -14,9 +14,10 @@
     user: null,
     records: [],
     collections: [],
+    collectionLinks: [],
     filtered: [],
     view: 'grid',
-    group: 'alpha',
+    group: 'shelf',
     secondary: 'artist',
     currentId: null,
     random: false,
@@ -56,14 +57,28 @@
   function recordCode(r){ return r.shelf_id || r.code || ''; }
   function coverUrl(r){ return r.cover_url || r.coverUrl || r.img || ''; }
   function collectionNames(r){
+    const fromLinks = arr(r.collection_ids || r.collectionIds).map(id => {
+      const hit = state.collections.find(c => c.id === id);
+      return hit ? hit.name : id;
+    }).filter(Boolean);
     const raw = visibleCollections(r.collections);
-    return raw.map(x => {
+    const fromJson = raw.map(x => {
       if(typeof x === 'string'){
         const hit = state.collections.find(c => c.id === x || c.name === x);
         return hit ? hit.name : x;
       }
       return x?.name || '';
     }).filter(Boolean);
+    return [...new Set([...fromLinks, ...fromJson].filter(x => !isRecordCabinet(x)))];
+  }
+  function collectionIdsForRecord(r){
+    const ids = arr(r.collection_ids || r.collectionIds);
+    if(ids.length) return ids.filter(id => !isRecordCabinet(id));
+    return visibleCollections(r.collections).map(x => {
+      if(typeof x !== 'string') return x?.id || x?.name || '';
+      const hit = state.collections.find(c => c.id === x || c.name === x);
+      return hit ? hit.id : x;
+    }).filter(Boolean).filter(id => !isRecordCabinet(id));
   }
   function setSync(txt){ const n=$('#stDbStatus'); if(n) n.textContent=txt || 'Ready'; }
 
@@ -126,14 +141,22 @@
   async function loadAll(){
     if(!state.user) return;
     setSync('Loading');
-    const [recRes, colRes] = await Promise.all([
+    const [recRes, colRes, linkRes] = await Promise.all([
       SB.from('records').select(FIELDS).eq('user_id',state.user.id).order('shelf_id',{ascending:true}),
-      SB.from('collections').select('*').eq('user_id',state.user.id).order('name',{ascending:true})
+      SB.from('collections').select('*').eq('user_id',state.user.id).order('name',{ascending:true}),
+      SB.from('record_collections').select('record_id,collection_id').eq('user_id',state.user.id)
     ]);
     if(recRes.error){ alert(recRes.error.message); return; }
     if(colRes.error){ console.warn(colRes.error); }
+    if(linkRes.error){ console.warn(linkRes.error); }
     state.collections = visibleCollectionRows(colRes.data || []);
-    state.records = (recRes.data || []).map(normalizeRecord);
+    state.collectionLinks = linkRes.data || [];
+    const linkMap = new Map();
+    state.collectionLinks.forEach(l => {
+      if(!linkMap.has(l.record_id)) linkMap.set(l.record_id, []);
+      if(!isRecordCabinet(l.collection_id)) linkMap.get(l.record_id).push(l.collection_id);
+    });
+    state.records = (recRes.data || []).map(r => normalizeRecord({...r, collection_ids: linkMap.get(r.id) || []}));
     applyFilters();
     setSync('Synced');
   }
@@ -399,10 +422,21 @@
     $('#mActions').innerHTML=`<button type="button" class="btn-sm dl" onclick="deleteCurrent()">Remove</button><button type="button" class="btn-sm ed" onclick="openForm(${idx})">Edit Record</button>`;
     renderModalState(r);
     renderModalCollections(r);
-    $('#mWiki').innerHTML=`${displayYear(r)?`Released ${esc(displayYear(r))}. `:''}${r.label?`Label: ${esc(r.label)}. `:''}${r.country?`Country: ${esc(r.country)}. `:''}${r.genre?`Genre: ${esc(r.genre)}.`:''}` || 'No extra metadata saved yet.';
-    $('#mStyles').innerHTML=(r.genres||[]).concat(r.styles||[]).map(x=>`<span class="style-pill">${esc(x)}</span>`).join('');
+    const metaBits = [
+      displayYear(r) ? `Released ${esc(displayYear(r))}` : '',
+      r.label ? `Label: ${esc(r.label)}` : '',
+      r.country ? `Country: ${esc(r.country)}` : '',
+      r.genre ? `Genre: ${esc(r.genre)}` : '',
+      r.discogs_id ? `Discogs ID: ${esc(r.discogs_id)}` : ''
+    ].filter(Boolean);
+    $('#mWiki').className='wiki-txt';
+    $('#mWiki').innerHTML=metaBits.length ? metaBits.join('. ') + '.' : 'No extra metadata saved yet.';
+    $('#mStyles').innerHTML=(r.genres||[]).concat(r.styles||[]).filter(Boolean).map(x=>`<span class="style-pill">${esc(x)}</span>`).join('');
     $('#mLinks').innerHTML=`${r.discogs_url?`<a class="ext-link" href="${esc(r.discogs_url)}" target="_blank" rel="noopener">Release on Discogs ↗</a>`:''}<button class="btn-sec" id="mForceBtn" onclick="forceDiscogs()">Refresh Discogs</button>`;
-    $('#mNote').innerHTML=r.note?`<div class="note-box">${esc(r.note)}</div>`:'';
+    $('#mNote').innerHTML=r.note?esc(r.note):'';
+    $('#mNote').style.display=r.note?'block':'none';
+    const modalTracks=tracks(r);
+    $('#mTl').style.display=modalTracks.length ? 'block' : 'none';
     $('#mTlC').innerHTML=trackHtml(r).replaceAll('tl-','m-tl-');
     renderRelated(r);
     $('#detOv').classList.add('on'); $('#detOv').setAttribute('aria-hidden','false'); $('#detModal').focus();
@@ -439,9 +473,15 @@
     if(patch && Object.prototype.hasOwnProperty.call(patch,'collections')) patch.collections = internalCollections(patch.collections);
     if(!r) return;
     setSync('Saving');
+    const linkIds = patch && Object.prototype.hasOwnProperty.call(patch,'collection_ids') ? arr(patch.collection_ids) : null;
     const payload={...patch, updated_at:new Date().toISOString()};
+    delete payload.collection_ids;
     const {data,error}=await SB.from('records').update(payload).eq('id',r.id).eq('user_id',state.user.id).select(FIELDS).single();
     if(error){ setSync('Save error'); alert(error.message); return; }
+    if(linkIds){
+      try{ await syncRecordCollections(data.id, linkIds); }catch(e){ setSync('Collection save error'); alert(e.message); return; }
+      data.collection_ids = linkIds;
+    }
     await logChange(action,r,data);
     const idx=state.records.findIndex(x=>x.id===r.id);
     if(idx>=0) state.records[idx]=normalizeRecord(data);
@@ -451,6 +491,17 @@
 
   async function logChange(action,before,after){
     try{ await SB.from('change_log').insert({user_id:state.user.id,action,before_data:before||null,after_data:after||null}); }catch(e){}
+  }
+
+  async function syncRecordCollections(recordId, ids){
+    const clean=[...new Set(arr(ids).filter(Boolean).filter(id => !isRecordCabinet(id)))];
+    const del=await SB.from('record_collections').delete().eq('user_id',state.user.id).eq('record_id',recordId);
+    if(del.error) throw del.error;
+    if(clean.length){
+      const rows=clean.map(collection_id => ({user_id:state.user.id, record_id:recordId, collection_id}));
+      const ins=await SB.from('record_collections').insert(rows);
+      if(ins.error) throw ins.error;
+    }
   }
 
   async function toggleListened(){ const r=current(); await saveRecord(r,{listened:!r.listened,listened_at:!r.listened?new Date().toISOString():r.listened_at},'listened_update'); }
@@ -515,8 +566,8 @@
   window.closeForm=closeForm;
 
   function renderCollectionSelect(r){
-    const selected=new Set(collectionNames(r||{}));
-    $('#fldCollections').innerHTML=state.collections.map(c=>`<option value="${esc(c.id)}" ${selected.has(c.name)?'selected':''}>${esc(c.name)}</option>`).join('');
+    const selected=new Set(collectionIdsForRecord(r||{}));
+    $('#fldCollections').innerHTML=state.collections.map(c=>`<option value="${esc(c.id)}" ${selected.has(c.id)?'selected':''}>${esc(c.name)}</option>`).join('');
   }
 
   function renderTrackEditor(ts=[]){
@@ -554,6 +605,7 @@
       cover_url:$('#fldImg').value.trim(),
       note:$('#fldNote').value.trim(),
       tracklist:parseTrackEditor(),
+      collection_ids:[...document.querySelector('#fldCollections').selectedOptions].map(o=>o.value),
       collections:internalCollections([...document.querySelector('#fldCollections').selectedOptions].map(o=>o.value)),
       user_id:state.user.id,
       updated_at:new Date().toISOString()
@@ -564,6 +616,8 @@
     }else{
       const {data,error}=await SB.from('records').upsert(payload,{onConflict:'user_id,shelf_id'}).select(FIELDS).single();
       if(error){ alert(error.message); return; }
+      try{ await syncRecordCollections(data.id, payload.collection_ids); }catch(e){ alert(e.message); return; }
+      data.collection_ids = payload.collection_ids;
       await logChange('record_add',null,data);
     }
     closeForm(); await loadAll();
@@ -655,6 +709,8 @@
   async function deleteCollection(id){
     if(isRecordCabinet(id)){ alert('Record Cabinet is implicit and cannot be removed as a visible label.'); return; }
     if(!confirm('Remove this collection label?')) return;
+    const linkDel=await SB.from('record_collections').delete().eq('user_id',state.user.id).eq('collection_id',id);
+    if(linkDel.error){ alert(linkDel.error.message); return; }
     const {error}=await SB.from('collections').delete().eq('user_id',state.user.id).eq('id',id);
     if(error){ alert(error.message); return; }
     await loadAll(); renderUserSettings();
