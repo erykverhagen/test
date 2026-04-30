@@ -1,3 +1,1 @@
-Do not add dead_wax_db.js to this public repository.
-
-This build loads record data from Supabase after authentication. The DB JS file is only a migration/import source and should not be public runtime data.
+Do not commit dead_wax_db.js or service_role keys. The public app uses Supabase auth + RLS. The tools folder is migration-only and can be removed after import.

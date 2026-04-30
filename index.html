@@ -2,70 +2,287 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dead Wax</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23d09a24'/%3E%3Ccircle cx='32' cy='32' r='23' fill='none' stroke='%230b0906' stroke-width='3'/%3E%3Ctext x='32' y='39' text-anchor='middle' font-family='serif' font-size='15' font-weight='700' fill='%230b0906'%3EDW%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23e8b840'/%3E%3Cstop offset='60%25' stop-color='%23b07818'/%3E%3Cstop offset='100%25' stop-color='%237a5010'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='30' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='32' r='25' fill='none' stroke='%230b0906' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%230b0906' stroke-width='2.5'/%3E%3Ccircle cx='32' cy='32' r='13' fill='%23d09a24' stroke='%237a5010' stroke-width='1'/%3E%3Ctext x='32' y='38' text-anchor='middle' font-family='serif' font-size='14' font-weight='600' fill='%230b0906'%3EDW%3C/text%3E%3C/svg%3E">
+<script>try{if(localStorage.getItem('dw_high_contrast')==='1'){document.documentElement.classList.add('dw-high-contrast')}const s=localStorage.getItem('dw_type_scale')||'12';document.documentElement.dataset.typeScale=s;document.documentElement.classList.toggle('dw-type-double-album',s==='double');document.documentElement.classList.toggle('dw-type-box-set',s==='box')}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/deadwax.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
-<script defer src="js/deadwax-native.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/deadwax-static.css">
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to records</a>
-<section id="authScreen" class="auth-screen">
-  <div class="auth-card">
-    <div class="logo-lock"><span class="disc">DW</span><div><h1>Dead Wax</h1><p>A vinyl collection</p></div></div>
-    <p class="auth-copy">Sign in to load your personal collection from Supabase. No local DB runtime, no hidden browser archive.</p>
-    <label>Email<input id="authEmail" autocomplete="email" type="email" placeholder="you@example.com"></label>
-    <label>Password<input id="authPassword" autocomplete="current-password" type="password" placeholder="••••••••"></label>
-    <div class="auth-actions"><button id="signInBtn" class="primary">Sign in</button><button id="signUpBtn" class="ghost">Sign up</button></div>
-    <p id="authMsg" class="muted"></p>
+<a class="skip-link" href="#mainArea">Skip to collection</a>
+<header id="hdr">
+  <div class="h1">
+    <button type="button" class="logo" onclick="randomize()" title="Spin for a random album" aria-label="Spin for a random album"><svg class="rdisc" id="rdisc" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><radialGradient id="dwHdrGold" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#e8b840"/><stop offset="60%" stop-color="#b07818"/><stop offset="100%" stop-color="#7a5010"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="url(#dwHdrGold)" stroke="#6a4c10" stroke-width="1"/><circle cx="32" cy="32" r="25" fill="none" stroke="#0b0906" stroke-width="3"/><circle cx="32" cy="32" r="20" fill="none" stroke="#0b0906" stroke-width="2.5"/><circle cx="32" cy="32" r="13" fill="#d09a24" stroke="#7a5010" stroke-width="1"/><text x="32" y="38" text-anchor="middle" font-family="serif" font-size="14" font-weight="600" fill="#0b0906">DW</text></svg></button>
+    <button type="button" class="brand-home" onclick="goHomeGrid()" aria-label="Dead Wax home, show grid view"><div class="brand-block"><div class="logo-main">Dead Wax</div><div class="logo-sub">A vinyl collection</div></div></button>
+    <div class="search-wrap" id="searchWrap"><label class="sr-only" for="gSearch">Search records</label><svg class="s-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" id="gSearch" placeholder="Search artist, album, track, Shelf ID…" autocomplete="off"><div class="sf" id="sf" role="listbox" aria-label="Search results"></div></div>
+    <div class="h-right"><div class="count-pill" id="countPill" tabindex="0" aria-describedby="countTip"><strong>0</strong> records<div class="count-tip" id="countTip" role="status">Loading archive status…</div></div><button type="button" class="btn-add" onclick="openForm()"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 1v10M1 6h10"/></svg> Add</button><div class="vtog" aria-label="View mode"><button type="button" class="vbtn on" id="btnGrid" onclick="setView('grid')" title="Grid" aria-pressed="false" aria-label="Show grid view"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></button><button type="button" class="vbtn" id="btnList" onclick="setView('list')" title="List" aria-pressed="false" aria-label="Show list view"><svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg></button><button type="button" class="vbtn" id="btnFlow" onclick="setView('flow')" title="Cover Flow" aria-pressed="false" aria-label="Show Cover Flow view"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8h3"/><path d="M11.5 8h3"/><rect x="5" y="2.5" width="6" height="11" rx="1.2" fill="currentColor" stroke="none" opacity=".95"/><path d="M2.7 4.2 4.9 5.3v5.4L2.7 11.8" opacity=".6"/><path d="M13.3 4.2 11.1 5.3v5.4l2.2 1.1" opacity=".6"/></svg></button></div><button type="button" class="btn-ico filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterDrawer" title="Filters" aria-label="Show filters"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg></button><div class="header-select-wrap"><label for="groupSelect">Group</label><select class="header-select" id="groupSelect" aria-label="Group records by"><option value="alpha">A–Z</option><option value="artist">Artist</option><option value="genre">Genre</option><option value="decade">Decade</option><option value="collection">Collection</option></select></div><div class="header-select-wrap secondary-group-wrap" id="secondaryGroupWrap" hidden><label for="secondaryGroupSelect">Then</label><select class="header-select" id="secondaryGroupSelect" aria-label="Then sort records by"><option value="artist">Artist</option><option value="alpha">A–Z</option><option value="genre">Genre</option><option value="decade">Decade</option></select></div><div class="user-menu-wrap" id="userMenuWrap"><button type="button" class="btn-ico" id="userMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu" title="User menu" aria-label="Open user menu"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.2-6 8-6s6.5 2 8 6"/></svg></button><div class="user-menu" id="userMenu" role="menu" aria-labelledby="userMenuBtn"><button type="button" class="user-menu-item" role="menuitem" onclick="openSettingsFromMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>Settings</span></button><button type="button" class="user-menu-item" role="menuitem" onclick="signOut()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Sign out</span></button></div></div></div>
   </div>
-</section>
-<div id="appShell" class="app-shell hidden">
-  <header class="app-header">
-    <div class="topbar">
-      <button id="randomBtn" class="disc-btn" title="Random record">DW</button>
-      <button id="homeBtn" class="brand"><span class="brand-main">Dead Wax</span><span class="brand-sub">A vinyl collection</span></button>
-      <div class="search"><span>⌕</span><input id="searchInput" placeholder="Search artist, album, shelf ID, tracklist…"></div>
-      <div class="counter"><strong id="shownCount">0</strong> shown <strong id="totalCount">0</strong> total <span id="syncState">Synced</span></div>
-      <button id="filterToggle" class="icon-btn">Filters</button>
-      <div class="view-toggle"><button data-view="grid" class="on">Grid</button><button data-view="list">List</button><button data-view="flow">Cover</button></div>
-      <div class="user-menu"><button id="settingsBtn" class="icon-btn">Settings</button><button id="signOutBtn" class="icon-btn">Sign out</button></div>
+  <div class="h2 filter-drawer" id="filterDrawer"><div class="fg" style="max-width:72px"><label for="fCode">Shelf ID</label><input id="fCode" placeholder="A1…"></div><div class="fg"><label for="fArtist">Artist</label><input id="fArtist" placeholder="Artist…"></div><div class="fg"><label for="fLast">Last Name</label><input id="fLast" placeholder="Last…"></div><div class="fg"><label for="fFirst">First Name</label><input id="fFirst" placeholder="First…"></div><div class="fg"><label for="fAlbum">Album</label><input id="fAlbum" placeholder="Album…"></div><div class="fg" style="max-width:128px"><label for="fGenre">Genre</label><select id="fGenre"><option value="">All Genres</option></select></div><div class="fg filter-check"><label for="fListened">Listened</label><label class="check-wrap"><input id="fListened" type="checkbox"> <span>Listened</span></label></div><div class="fg" style="max-width:132px"><label for="fRating">Reaction</label><select id="fRating"><option value="">All reactions</option><option value="disliked">Disliked</option><option value="liked">Liked</option><option value="favorite">Favorite</option></select></div><div class="fg" style="max-width:132px"><label for="fLastListened">Last listened</label><select id="fLastListened"><option value="">Any time</option><option value="week">Last week</option><option value="month">Last month</option><option value="year">Last year</option><option value="older">Longer ago</option></select></div><div class="fg filter-check"><label for="fGrail">Grail</label><label class="check-wrap"><input id="fGrail" type="checkbox"> <span>Grail only</span></label></div><button type="button" class="btn-clr" id="btnClr" aria-label="Clear filters">Clear</button></div>
+</header>
+
+<!-- alphabet jump bar -->
+<div class="jump-bar" id="jumpBar"></div>
+
+<main class="main" id="mainArea" tabindex="-1" aria-labelledby="mainHeading">
+  <h1 class="sr-only">Dead Wax</h1>
+  <h2 class="sr-only" id="mainHeading">Record collection</h2>
+  <div id="gridWrap"></div>
+  <div class="list-wrap" id="listWrap">
+    <div class="list-hdr" aria-hidden="true"></div>
+    <div id="listBody"></div>
+  </div>
+  <div class="flow-wrap" id="flowWrap">
+    <div class="flow-shell">
+      <div class="coverflow" id="cfStage" tabindex="0" aria-label="Cover Flow"></div>
+      <div class="flow-meta" id="cfMeta"></div>
     </div>
-    <div id="filters" class="filters">
-      <label>Shelf ID<input id="fShelf" placeholder="A1…"></label>
-      <label>Artist<input id="fArtist" placeholder="Artist…"></label>
-      <label>Album<input id="fAlbum" placeholder="Album…"></label>
-      <label>Genre<select id="fGenre"><option value="">All genres</option></select></label>
-      <label>Listened<span class="checkline"><input id="fListened" type="checkbox"> Listened</span></label>
-      <label>Doubles<span class="checkline"><input id="fDoubles" type="checkbox"> More than 1 copy</span></label>
-      <label>Reaction<select id="fReaction"><option value="">All reactions</option><option value="disliked">Disliked</option><option value="liked">Liked</option><option value="favorite">Favorite</option></select></label>
-      <label>Last listened<select id="fLast"><option value="">Any time</option><option value="week">This week</option><option value="month">This month</option><option value="year">This year</option></select></label>
-      <label>Grail<span class="checkline"><input id="fGrail" type="checkbox"> Grail only</span></label>
-      <button id="clearFilters" class="clear-btn">Clear</button>
+  </div>
+</main>
+<div id="resultStatus" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="coverFlowStatus" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+<!-- DETAIL MODAL -->
+<div class="ov" id="detOv" aria-hidden="true">
+  <div class="modal" id="detModal" role="dialog" aria-modal="true" aria-labelledby="mArtist" tabindex="-1">
+    <button type="button" class="m-close" id="mClose" aria-label="Close record details">✕</button>
+    <div class="rand-banner" id="rBanner" style="display:none">
+      <div class="rb-icon">♫</div>
+      <div><div class="rb-title">Give This Album a Spin</div><div class="rb-sub">Selected by your personal randomiser</div></div>
     </div>
-  </header>
-  <main id="main" class="main"><div id="records"></div></main>
+    <div class="m-top">
+      <div class="m-cover-stack">
+        <div class="m-cover" id="mCover" aria-label="Album cover"><div class="vph"><div class="vd" style="width:80%;height:80%"></div></div></div>
+        <div class="m-statebox" id="mStateBox"></div>
+      </div>
+      <div class="m-info">
+        <div class="m-code" id="mCode"></div>
+        <div class="m-artist" id="mArtist"></div>
+        <div class="m-album" id="mAlbum"></div>
+        <div class="m-chips" id="mChips"></div>
+        <div class="m-actions" id="mActions"></div>
+        <div class="m-collection-shell" id="mCollectionBox"></div>
+      </div>
+      <aside class="grail-detail-card" id="mGrailCard" aria-label="Grail Record" role="note">
+        <div class="grail-detail-text">
+          <div class="grail-detail-kicker">Grail Record</div>
+          <div class="grail-detail-title">A rare record in the physical collection.</div>
+        </div>
+        <div class="grail-detail-mark" aria-hidden="true"></div>
+      </aside>
+    </div>
+    <div class="m-div"></div>
+    <div class="m-body">
+      <div class="m-layout">
+        <div class="m-main">
+          <div class="sec-lbl" role="heading" aria-level="3">About</div>
+          <div id="mWiki"></div>
+          <div class="style-pills" id="mStyles"></div>
+          <div class="m-links" id="mLinks"></div>
+          <div id="mForce" style="display:none;margin-top:.6rem">
+            <button type="button" class="btn-sm ed" id="mForceBtn" style="display:flex;align-items:center;gap:.4rem;padding:.3rem .7rem">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              Refresh Discogs
+            </button>
+            <span style="font-size:.6rem;color:var(--m2);margin-left:.5rem">Manual only. New results stay in browser storage until you export the Discogs DB file</span>
+          </div>
+          <div class="m-tl" id="mTl" style="display:none"><div class="sec-lbl" role="heading" aria-level="3">Tracklist</div><div id="mTlC"></div></div>
+          <div id="mNote" class="note-box" style="display:none"></div>
+        </div>
+        <aside class="m-side">
+          <div class="m-rel" id="mArtistMoreWrap" style="display:none">
+            <div class="sec-lbl" role="heading" aria-level="3">More from this artist</div>
+            <div class="m-rel-list" id="mArtistMore"></div>
+          </div>
+          <div class="m-rel" id="mSimilarWrap" style="display:none">
+            <div class="sec-lbl" role="heading" aria-level="3">Similar to this</div>
+            <div class="m-rel-list" id="mSimilar"></div>
+          </div>
+        </aside>
+      </div>
+
+    </div>
+  </div>
 </div>
-<div id="detailOverlay" class="overlay hidden"><article id="detailModal" class="modal"><button class="close" id="closeDetail">×</button><div id="detailContent"></div></article></div>
-<div id="editOverlay" class="overlay hidden"><article class="modal edit-modal"><button class="close" id="closeEdit">×</button><h2 id="editTitle">Edit Record</h2><p class="muted">Changes write directly to Supabase.</p><form id="editForm" class="edit-form">
-  <label>Shelf ID<input name="shelf_id" required></label><label>Artist<input name="artist" required></label><label>Album<input name="album" required></label>
-  <label>Last name / group<input name="last"></label><label>First name<input name="first"></label><label>Copies owned<input name="copies_owned" type="number" min="1" value="1"></label>
-  <label>Discogs URL<input name="discogs_url"></label><label>Cover image URL<input name="cover_url"></label><label>Genre<input name="genre"></label>
-  <label>Year<input name="release_year" type="number"></label><label>Label<input name="label"></label><label>Country<input name="country"></label>
-  <label class="full">Notes<textarea name="note"></textarea></label>
-  <label class="full">Collections <select name="collections" multiple></select><small>Hold Cmd/Ctrl to select multiple.</small></label>
-  <label class="full checkline big"><input name="grail" type="checkbox"> Grail Record</label>
-  <label class="full">Tracklist <textarea name="tracklist_text" rows="8" placeholder="A1 | Track title | 3:45"></textarea></label>
-  <div class="form-actions full"><button type="button" id="cancelEdit" class="ghost">Cancel</button><button class="primary">Save Record</button></div>
-</form></article></div>
-<div id="settingsOverlay" class="overlay hidden"><article class="modal settings-modal"><button class="close" id="closeSettings">×</button><h2>Settings</h2><div class="settings-grid">
-  <section><h3>Database</h3><p>Records load and save only from Supabase.</p><a class="primary linkbtn" href="tools/importer.html">Open importer</a></section>
-  <section><h3>Discogs</h3><label>Personal Access Token<input id="discogsToken" type="password" placeholder="Discogs token"></label><button id="saveToken" class="ghost">Save token</button><p class="muted">Stored in this browser only and used to enrich records. Enrichment is saved to Supabase record rows.</p></section>
-  <section><h3>Accessibility</h3><label class="checkline big"><input id="highContrast" type="checkbox"> High contrast</label><label>Text size<select id="typeScale"><option value="12">12-inch</option><option value="double">Double Album</option><option value="box">Box Set</option></select></label></section>
-</div></article></div>
+
+<!-- FORM MODAL -->
+<div class="f-ov" id="fOv" aria-hidden="true">
+  <div class="f-modal" id="formModal" role="dialog" aria-modal="true" aria-labelledby="fTitle" tabindex="-1">
+    <div class="f-hdr"><div><div class="f-title" id="fTitle">Add Record</div><div class="f-sub">Saved locally — persists between sessions</div></div><button type="button" class="m-close" style="position:static" onclick="closeForm()" aria-label="Close record form">✕</button></div>
+    <div class="f-body">
+      <div class="form-id-row">
+        <div class="ff"><div class="id-label-row"><label for="fldCode">Shelf ID *</label><button type="button" class="id-info-btn" aria-describedby="idHelp" aria-label="About Dead Wax Shelf IDs">i</button><span class="id-tip" id="idHelp" role="tooltip">Your Dead Wax Shelf ID links the digital record to its place in the physical collection. Use a system that matches your shelves, for example B12.</span></div><input id="fldCode" aria-describedby="codeHint" placeholder="e.g. A1"><span class="hint" id="codeHint" aria-live="polite"></span></div>
+        <div class="ff"><label class="grail-field"><input id="fldGrail" type="checkbox"><span><strong>Grail Record</strong><br>Only available when Copies Owned is 1.</span></label></div>
+        <div class="ff"><label for="fldOwned">Copies Owned</label><input id="fldOwned" type="number" min="1" value="1"></div>
+      </div>
+      <div class="ff full"><label for="fldArtist">Artist Display Name *</label><input id="fldArtist" placeholder="Full name as it appears on the record"></div>
+      <div class="ff"><label for="fldLast">Last Name / Group</label><input id="fldLast" placeholder="Surname, or blank for groups"></div>
+      <div class="ff"><label for="fldFirst">First Name</label><input id="fldFirst" placeholder="Given name only"></div>
+      <div class="ff full"><label for="fldAlbum">Album Title</label><input id="fldAlbum" placeholder="Title as it appears on the sleeve"></div>
+      <div class="ff full"><label for="fldCollections">Collections</label><select id="fldCollections" class="collection-select" multiple size="4"></select><span class="collection-hint">Hold Cmd/Ctrl to select multiple collections.</span></div>
+      <div class="ff full"><label for="fldDg">Discogs URL <span style="font-weight:300;text-transform:none;letter-spacing:0">(save link here, then fetch manually)</span></label><input id="fldDg" aria-describedby="dgHint" placeholder="https://www.discogs.com/release/… or /master/…"><span class="hint" id="dgHint" aria-live="polite"></span></div>
+      <div class="ff full">
+        <label for="fldImg">Cover Image URL <span style="font-weight:300;text-transform:none;letter-spacing:0">(overrides Discogs cover)</span></label>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <input id="fldImg" placeholder="https://… direct link to cover image" oninput="prevImg()" style="flex:1">
+          <div class="img-prev" id="imgPrev"><span>Preview</span></div>
+        </div>
+      </div>
+      <div class="f-sync-warn" id="fSyncWarn"><strong>Custom edits active.</strong> Manual changes to the cover, notes or tracklist live in this archive. Refreshing or syncing with Discogs will overwrite custom archive edits, including the manual tracklist, so keep these fields as your source of truth when the archive should differ from Discogs.</div>
+      <div class="ff full f-track-editor" aria-label="Manual tracklist editor">
+        <div class="f-track-head">
+          <div>
+            <label id="trackEditorLabel">Manual tracklist</label>
+            <span class="collection-hint">Add or edit tracks per side. Each added disc continues the side lettering automatically: A/B, C/D, E/F.</span>
+          </div>
+          <button type="button" class="f-add-disc" id="addDiscBtn">+ Add disc</button>
+        </div>
+        <div class="f-track-grid" id="fTrackGrid" aria-labelledby="trackEditorLabel"></div>
+      </div>
+      <div class="ff full"><label for="fldNote">Note</label><textarea id="fldNote" placeholder="Anything worth remembering about this record…"></textarea></div>
+    </div>
+    <div class="f-foot"><button type="button" class="btn-cancel" onclick="closeForm()">Cancel</button><button type="button" class="btn-save" onclick="saveRec()">Save Record</button></div>
+  </div>
+</div>
+
+<!-- USER / SETTINGS MODAL -->
+<div class="s-ov" id="sOv" aria-hidden="true">
+  <div class="s-modal user-shell" id="userModal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle" tabindex="-1">
+    <div class="user-head">
+      <div>
+        <div class="f-title" id="userModalTitle">User</div>
+        <div class="f-sub">Account, collection labels, database and interface settings</div>
+      </div>
+      <button type="button" class="m-close" style="position:static" onclick="closeSett()" aria-label="Close user settings">✕</button>
+    </div>
+
+    <div class="user-layout">
+      <aside class="user-nav" aria-label="User settings navigation" role="tablist" aria-orientation="vertical">
+        <button type="button" class="user-tab on" id="tabProfile" role="tab" aria-controls="userPanelProfile" aria-selected="false" onclick="showUserTab('profile')"><span class="user-tab-kicker">Account</span><span>Profile</span></button>
+        <button type="button" class="user-tab" id="tabCollections" role="tab" aria-controls="userPanelCollections" aria-selected="false" onclick="showUserTab('collections')"><span class="user-tab-kicker">Labels</span><span>Collections</span></button>
+        <button type="button" class="user-tab" id="tabDatabase" role="tab" aria-controls="userPanelDatabase" aria-selected="false" onclick="showUserTab('database')"><span class="user-tab-kicker">Archive</span><span>Database</span></button>
+        <button type="button" class="user-tab" id="tabDiscogs" role="tab" aria-controls="userPanelDiscogs" aria-selected="false" onclick="showUserTab('discogs')"><span class="user-tab-kicker">Enrichment</span><span>Discogs</span></button>
+        <button type="button" class="user-tab" id="tabInterface" role="tab" aria-controls="userPanelInterface" aria-selected="false" onclick="showUserTab('interface')"><span class="user-tab-kicker">Browser</span><span>Interface</span></button>
+        <button type="button" class="user-tab" id="tabAccessibility" role="tab" aria-controls="userPanelAccessibility" aria-selected="false" onclick="showUserTab('accessibility')"><span class="user-tab-kicker">Access</span><span>Accessibility</span></button>
+      </aside>
+
+      <section class="user-content">
+        <div class="user-panel on" id="userPanelProfile" role="tabpanel" aria-labelledby="tabProfile" tabindex="0">
+          <div class="user-panel-title">Profile</div>
+          <div class="user-panel-sub">Current local user for this archive. More account features can hang from here later.</div>
+          <div class="settings-section">
+            <div class="settings-section-title">Current user</div>
+            <div class="settings-row"><span>User name</span><strong id="stUserName" style="color:var(--gold)">Current user</strong></div>
+            <div class="settings-row"><span>Collection labels</span><strong id="stUserCollections" style="color:var(--mt)">0</strong></div>
+            <div class="settings-row"><span>Records in archive</span><strong id="stUserRecords" style="color:var(--mt)">0</strong></div>
+          </div>
+        </div>
+
+        <div class="user-panel" id="userPanelCollections" role="tabpanel" aria-labelledby="tabCollections" tabindex="0">
+          <div class="user-panel-title">Collections</div>
+          <div class="user-panel-sub">Create reusable labels. A record can belong to several collections at the same time.</div>
+          <div class="settings-section">
+            <div class="settings-section-title">Collection labels</div>
+            <div class="tip">All records belong in your Record Cabinet. Add collection labels to sort, filter and browse records in optional groups.</div>
+            <div class="collection-list" id="collectionList"></div>
+            <div class="collection-add"><label class="sr-only" for="newCollectionName">New collection label</label><input id="newCollectionName" placeholder="New collection label, e.g. Jazz keepers"><button type="button" class="btn-save" onclick="addCollection()">Add</button></div>
+          </div>
+        </div>
+
+        <div class="user-panel" id="userPanelDatabase" role="tabpanel" aria-labelledby="tabDatabase" tabindex="0">
+          <div class="user-panel-title">Database</div>
+          <div class="user-panel-sub">Save the real archive state, including Discogs data, record overrides and collection labels.</div>
+          <div class="settings-section">
+            <div class="settings-section-title">Database status</div>
+            <div class="settings-row"><span>Database file</span><strong style="color:var(--gold)">dead_wax_db.js</strong></div>
+            <div class="settings-row"><span>Status</span><span id="stDbStatus">Ready</span></div>
+            <div class="settings-row"><span>Base records</span><strong id="stDbBase" style="color:var(--mt)">0</strong></div>
+            <div class="settings-row"><span>Currently showing</span><strong id="stDbShowing" style="color:var(--mt)">0</strong></div>
+            <div class="settings-row"><span>Discogs synced</span><strong id="stDbDiscogs" style="color:var(--mt)">0</strong></div>
+            <div class="settings-row"><span>Record overrides</span><strong id="stDbOverrides" style="color:var(--mt)">0</strong></div>
+            <div class="settings-mini" id="stDbCollections" style="margin-top:.55rem"></div>
+            <div class="s-btns" style="margin-top:.7rem"><button type="button" class="btn-save" onclick="exportDiscogsDb()">Save database</button><button type="button" class="btn-sec" onclick="exportDiscogsDb()">Save as dead_wax_db.js</button></div>
+          </div>
+        </div>
+
+        <div class="user-panel" id="userPanelDiscogs" role="tabpanel" aria-labelledby="tabDiscogs" tabindex="0">
+          <div class="user-panel-title">Discogs</div>
+          <div class="user-panel-sub">Control enrichment data: covers, genres, styles, tracklists and manual Discogs links.</div>
+          <div class="settings-section">
+            <div class="settings-section-title">Discogs token</div>
+            <div class="ff" style="margin-bottom:.7rem"><label for="stToken">Personal Access Token</label><input id="stToken" type="password" placeholder="Paste your token"><div class="tip">Stored in browser only. Used for manual Discogs fetches.</div></div>
+            <div class="settings-row"><span>Loaded Discogs records</span><strong id="stLoadedDiscogs" style="color:var(--mt)">0</strong></div>
+            <div class="s-btns" style="margin-top:.7rem"><button type="button" class="btn-save" onclick="saveSett()">Save token</button><button type="button" class="btn-sec" onclick="fetchMissingDiscogs()">Fetch missing Discogs</button></div>
+          </div>
+        </div>
+
+        <div class="user-panel" id="userPanelInterface" role="tabpanel" aria-labelledby="tabInterface" tabindex="0">
+          <div class="user-panel-title">Browser / Interface</div>
+          <div class="user-panel-sub">Browser-local maintenance and companion views.</div>
+          <div class="settings-section">
+            <div class="settings-section-title">Browser tools</div>
+            <div class="settings-row"><span>Local browser cache</span><span>Discogs cache and browser-side archive helpers</span></div>
+            <div class="s-btns"><button type="button" class="btn-sec dng" onclick="clearDgCache()">Clear browser cache</button><button type="button" class="btn-sec" onclick="openWebViewer()">Open web.html from same folder</button></div>
+          </div>
+        </div>
+
+        <div class="user-panel" id="userPanelAccessibility" role="tabpanel" aria-labelledby="tabAccessibility" tabindex="0" hidden>
+          <div class="user-panel-title">Accessibility</div>
+          <div class="user-panel-sub">Display options for stronger contrast and clearer state recognition.</div>
+          <div class="settings-section">
+            <div class="settings-section-title">Vision support</div>
+            <div class="settings-row a11y-setting-row">
+              <div>
+                <span>High contrast mode</span>
+                <div class="settings-help">Increases text contrast, strengthens borders/focus rings and makes selected states less dependent on subtle color differences.</div>
+              </div>
+              <label class="a11y-switch" for="highContrastToggle">
+                <input type="checkbox" id="highContrastToggle" role="switch" onchange="setHighContrast(this.checked)">
+                <span class="a11y-switch-track" aria-hidden="true"><span class="a11y-switch-knob"></span></span>
+                <span class="sr-only">Enable high contrast mode</span>
+              </label>
+            </div>
+            <div class="settings-row"><span>Status</span><strong id="stHighContrast" style="color:var(--mt)">Off</strong></div>
+            <div class="tip">This setting is saved in this browser. It does not change the database and will not affect exported archive data.</div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">Text size</div>
+            <div class="settings-row a11y-setting-row">
+              <div>
+                <span>Interface text size</span>
+                <div class="settings-help">Increase interface text and spacing across the archive. Names use vinyl formats: 12-inch is the current size.</div>
+              </div>
+              <fieldset class="a11y-size-fieldset" aria-describedby="fontSizeHelp">
+                <legend class="sr-only">Interface text size</legend>
+                <label class="a11y-size-option">
+                  <input type="radio" name="typeScale" value="12" onchange="setTypeScale(this.value)">
+                  <span>12-inch</span>
+                </label>
+                <label class="a11y-size-option">
+                  <input type="radio" name="typeScale" value="double" onchange="setTypeScale(this.value)">
+                  <span>Double Album</span>
+                </label>
+                <label class="a11y-size-option">
+                  <input type="radio" name="typeScale" value="box" onchange="setTypeScale(this.value)">
+                  <span>Box Set</span>
+                </label>
+              </fieldset>
+            </div>
+            <div class="settings-row"><span>Current size</span><strong id="stTypeScale" style="color:var(--mt)">12-inch</strong></div>
+            <div class="tip" id="fontSizeHelp">12-inch keeps the current look. Double Album gives more reading comfort. Box Set is the largest accessibility size.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<label class="sr-only" for="importFile">Import records JSON</label><input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="js/deadwax-native-parity.js"></script>
 </body>
 </html>
