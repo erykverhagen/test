@@ -5026,7 +5026,9 @@ async function fetchDg(rec,force=false){
   if(parsed){
     try{
       const data=await fetchByUrl(parsed.type,parsed.id);
-      idbSet(key,data); updateGenreDd(); return data;
+      idbSet(key,data);
+      try{ await window.DW_SUPABASE_SAVE_DISCOGS_RESULT?.(rec,data,key); }catch(e){ console.warn('Dead Wax Supabase Discogs save failed',e); }
+      updateGenreDd(); return data;
     }catch(e){
       if(isAuthError(e)) throw e;
       if(isNotFoundError(e)){
@@ -5044,7 +5046,9 @@ async function fetchDg(rec,force=false){
     try{
       const params=`type=release&format=Vinyl&per_page=5&artist=${encodeURIComponent(rec.artist)}&release_title=${encodeURIComponent(rec.album)}`;
       const data=await searchDiscogsRelease(params);
-      if(data){ idbSet(key,data); updateGenreDd(); return data; }
+      if(data){ idbSet(key,data);
+      try{ await window.DW_SUPABASE_SAVE_DISCOGS_RESULT?.(rec,data,key); }catch(e){ console.warn('Dead Wax Supabase Discogs save failed',e); }
+      updateGenreDd(); return data; }
     }catch(e){
       if(isAuthError(e)) throw e;
       if(isRetryableDiscogsError(e)) hadTransientError=true;
@@ -5054,7 +5058,9 @@ async function fetchDg(rec,force=false){
   try{
     const q=encodeURIComponent(`${rec.artist} ${rec.album||''}`.trim());
     const data=await searchDiscogsRelease(`q=${q}&type=release&format=Vinyl&per_page=5`);
-    if(data){ idbSet(key,data); updateGenreDd(); return data; }
+    if(data){ idbSet(key,data);
+    try{ await window.DW_SUPABASE_SAVE_DISCOGS_RESULT?.(rec,data,key); }catch(e){ console.warn('Dead Wax Supabase Discogs save failed',e); }
+    updateGenreDd(); return data; }
   }catch(e){
     if(isAuthError(e)) throw e;
     if(isRetryableDiscogsError(e)) hadTransientError=true;
@@ -6277,6 +6283,7 @@ function patchRecordState(idx, patch){
     overrides[BASE[idx].code]=next;
     saveOv();
   }
+  try{ window.DW_SUPABASE_UPSERT_RECORD?.(next,'record_state_update'); }catch(e){ console.warn('Dead Wax Supabase state save failed',e); }
   invalidate();
   applyFilters();
   if(mIdx===idx){
@@ -6440,6 +6447,7 @@ async function forceDiscogs(idx){
     const tlCEl=document.getElementById('mTlC');
     const coverEl=document.getElementById('mCover');
     if(dg){
+      try{ await window.DW_SUPABASE_SAVE_DISCOGS_RESULT?.(rec,dg,key); }catch(e){ console.warn('Dead Wax Supabase manual Discogs save failed',e); }
       showDgData(dg,wikiEl,stylesEl,linksEl,tlEl,tlCEl);
       renderModalDiscover(idx);
       if(!rec.img&&dg.coverUrl) coverEl.innerHTML=coverImgHtml(dg.coverUrl,rec.album,80);
@@ -6734,6 +6742,7 @@ function saveRec(){
   if(fCustomIdx!=null){ customRecs[fCustomIdx]=rec; saveCustom(); }
   else if(fBaseCode!=null){ overrides[fBaseCode]=rec; saveOv(); }
   else { customRecs.push(rec); saveCustom(); }
+  try{ window.DW_SUPABASE_UPSERT_RECORD?.(rec,'record_form_save'); }catch(e){ console.warn('Dead Wax Supabase form save failed',e); }
 
   invalidate();
   const refreshModalIdx = shouldRefreshDetail
@@ -6748,6 +6757,7 @@ function removeRecord(idx){
   const rec=getRec(idx);
   if(!rec) return;
   if(!confirm(`Remove \"${rec.artist} — ${rec.album||'Unknown album'}\" from Dead Wax?`)) return;
+  try{ window.DW_SUPABASE_DELETE_RECORD?.(rec); }catch(e){ console.warn('Dead Wax Supabase delete failed',e); }
   if(isCustom(idx)){ customRecs.splice(idx-BASE.length,1); saveCustom(); }
   else { overrides[BASE[idx].code]=normalizeRec({...rec,_removed:true}); saveOv(); }
   invalidate(); closeModal(); applyFilters();
