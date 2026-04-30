@@ -1,3 +1,3 @@
-Do not publish dead_wax_db.js or exported private collection DB files in this public GitHub repository.
+Do not add dead_wax_db.js to this public repository.
 
-This Supabase app reads records from Supabase after login. The local JS DB is only a migration/archive source.
+This build loads record data from Supabase after authentication. The DB JS file is only a migration/import source and should not be public runtime data.
