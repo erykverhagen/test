@@ -16,5 +16,5 @@ Supabase-native Dead Wax app using the latest static interface as the visual con
 Deploy this as the GitHub Pages repo root.
 
 
-## v19
-Rollback-safe build from working v15 with login converted to a stable two-column no-arm layout.
+## v20
+Stable login patch from working v15: preserves the v15 vinyl treatment, removes the tonearm/rectangle, and aligns intro plus login panel in a clean right column.

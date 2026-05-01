@@ -157,28 +157,72 @@
       html body .dw-auth-note::before{content:''!important;width:8px!important;height:8px!important;border-radius:50%!important;background:var(--gold)!important;box-shadow:0 0 12px rgba(208,154,36,.6)!important}
       @media(max-width:980px){html body .dw-deck{left:-520px!important;width:920px!important;height:920px!important}html body .dw-tonearm{left:48vw!important;top:1.2rem!important;width:280px!important;height:280px!important}html body .dw-auth-intro{top:2rem!important;right:1.2rem!important;width:min(420px,calc(100vw - 2.4rem))!important}html body .dw-auth-panel{right:1.2rem!important;top:auto!important;bottom:1.2rem!important;transform:none!important;width:min(430px,calc(100vw - 2.4rem))!important}html body .dw-auth-intro h1{font-size:3.4rem!important}html body .dw-auth-intro p{font-size:.82rem!important}}
       @media(max-width:640px){html body .dw-deck{left:50%!important;top:-420px!important;transform:translateX(-50%)!important;width:780px!important;height:780px!important}html body .dw-tonearm{left:auto!important;right:1rem!important;top:.7rem!important;width:210px!important;height:210px!important}html body .dw-pivot{width:62px!important;height:62px!important}html body .dw-auth-intro{left:1rem!important;right:1rem!important;top:15.5rem!important;width:auto!important}html body .dw-auth-intro h1{font-size:2.7rem!important}html body .dw-auth-intro p{font-size:.78rem!important;line-height:1.5!important}html body .dw-auth-panel{left:1rem!important;right:1rem!important;bottom:1rem!important;width:auto!important;padding:1rem!important}html body .dw-deck-controls{grid-template-columns:1fr!important}html body .dw-deck-btn{min-height:2.95rem!important}}
+
+
+      /* v20 stable login patch: keep v15 vinyl, remove arm/rectangles, align right column */
+      html body .dw-tonearm,
+      html body .dw-tonearm::before,
+      html body .dw-tonearm::after,
+      html body .dw-pivot{
+        display:none!important;
+        content:none!important;
+      }
+      html body .dw-turntable::after{
+        content:none!important;
+        display:none!important;
+      }
+      html body .dw-auth-intro,
+      html body .dw-auth-panel{
+        right:clamp(1.5rem,6vw,5.4rem)!important;
+        width:min(480px,calc(100vw - 3rem))!important;
+      }
+      html body .dw-auth-intro{
+        top:50%!important;
+        transform:translateY(calc(-50% - 10.5rem))!important;
+        z-index:7!important;
+      }
+      html body .dw-auth-intro p{
+        max-width:43ch!important;
+      }
+      html body .dw-auth-panel{
+        top:50%!important;
+        transform:translateY(calc(-50% + 5.25rem))!important;
+        z-index:8!important;
+      }
+      @media(max-width:980px){
+        html body .dw-auth-intro,
+        html body .dw-auth-panel{
+          right:1.2rem!important;
+          width:min(430px,calc(100vw - 2.4rem))!important;
+        }
+        html body .dw-auth-intro{
+          top:2rem!important;
+          transform:none!important;
+        }
+        html body .dw-auth-panel{
+          top:auto!important;
+          bottom:1.2rem!important;
+          transform:none!important;
+        }
+      }
+      @media(max-width:640px){
+        html body .dw-auth-intro{
+          left:1rem!important;
+          right:1rem!important;
+          top:15.5rem!important;
+          width:auto!important;
+          transform:none!important;
+        }
+        html body .dw-auth-panel{
+          left:1rem!important;
+          right:1rem!important;
+          bottom:1rem!important;
+          width:auto!important;
+          transform:none!important;
+        }
+      }
+
       @media(prefers-reduced-motion:reduce){html body .dw-platter::before,html body .dw-label{animation:none!important}html body .dw-tonearm,html body .dw-deck-btn{transition:none!important}}
-
-
-      /* DEAD WAX LOGIN V19 — stable column layout from working v15, no tonearm */
-      html body .dw-auth{display:none!important;overflow:hidden!important}
-      html body .dw-auth.on{display:grid!important;grid-template-columns:minmax(42vw,1fr) minmax(360px,520px)!important;align-items:center!important;column-gap:clamp(1.5rem,5vw,5rem)!important;padding:clamp(1rem,3vw,2.4rem)!important;background:radial-gradient(circle at 16% 48%,rgba(240,195,79,.12),transparent 33%),linear-gradient(135deg,#1a1108 0%,#0b0805 48%,#050302 100%)!important}
-      html body .dw-auth::before{z-index:0!important}
-      html body .dw-turntable{position:contents!important;display:contents!important;background:none!important;overflow:visible!important}
-      html body .dw-turntable::before,html body .dw-turntable::after{content:none!important;display:none!important}
-      html body .dw-deck{position:relative!important;left:auto!important;top:auto!important;width:min(84vw,960px)!important;height:min(84vw,960px)!important;min-width:620px!important;min-height:620px!important;transform:translateX(clamp(-23rem,-28vw,-11rem))!important;grid-column:1!important;grid-row:1!important;z-index:2!important;pointer-events:none!important;align-self:center!important;justify-self:start!important}
-      html body .dw-platter{position:absolute!important;inset:0!important;width:auto!important;height:auto!important;border-radius:50%!important}
-      html body .dw-platter::before{inset:4.2%!important;background:repeating-radial-gradient(circle at center,rgba(11,9,6,.24) 0 2px,rgba(244,234,210,.038) 3px 4px,rgba(11,9,6,.22) 5px 8px),radial-gradient(circle at 48% 45%,#f3cf62 0%,#d09a24 30%,#ad7717 65%,#6f470b 100%)!important}
-      html body .dw-label{inset:36%!important;background:radial-gradient(circle at 48% 42%,#f8d86d 0%,#d09a24 52%,#8d6815 100%)!important;border:2px solid rgba(11,9,6,.72)!important}
-      html body .dw-label .dw-mark{width:82%!important;height:82%!important}
-      html body .dw-tonearm{display:none!important}
-      html body .dw-auth-intro{position:relative!important;left:auto!important;right:auto!important;top:auto!important;width:min(520px,100%)!important;grid-column:2!important;grid-row:1!important;z-index:7!important;align-self:center!important;justify-self:stretch!important;margin:0 0 21rem 0!important;padding:0!important}
-      html body .dw-auth-intro h1{font-size:clamp(3rem,5vw,5.2rem)!important;line-height:.9!important;margin:0 0 .68rem!important}
-      html body .dw-auth-intro p{max-width:48ch!important;font-size:clamp(.86rem,1vw,.98rem)!important;line-height:1.65!important}
-      html body .dw-auth-panel{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;grid-column:2!important;grid-row:1!important;z-index:8!important;align-self:center!important;justify-self:stretch!important;width:min(430px,100%)!important;margin:12rem 0 0 0!important;padding:1.08rem 1.18rem!important;border-radius:18px!important}
-      html body .dw-auth-note{font-size:.62rem!important}
-      @media(max-width:980px){html body .dw-auth.on{grid-template-columns:1fr!important;align-content:start!important;row-gap:1rem!important;overflow:auto!important;padding:1rem!important}html body .dw-deck{grid-column:1!important;grid-row:1!important;width:min(92vw,760px)!important;height:min(92vw,760px)!important;min-width:0!important;min-height:0!important;transform:translate(-22vw,-37%)!important;margin-bottom:-16rem!important}html body .dw-auth-intro{grid-column:1!important;grid-row:2!important;margin:0!important;width:min(560px,100%)!important;justify-self:center!important}html body .dw-auth-panel{grid-column:1!important;grid-row:3!important;margin:0!important;width:min(430px,100%)!important;justify-self:center!important}html body .dw-auth-intro h1{font-size:3.25rem!important}}
-      @media(max-width:640px){html body .dw-auth.on{padding:.85rem!important}html body .dw-deck{width:760px!important;height:760px!important;transform:translate(-270px,-390px)!important;margin-bottom:-360px!important}html body .dw-auth-intro h1{font-size:2.65rem!important}html body .dw-auth-intro p{font-size:.78rem!important;line-height:1.52!important}html body .dw-auth-panel{padding:1rem!important}html body .dw-deck-controls{grid-template-columns:1fr!important}}
     `;
     document.head.appendChild(loginFix);
     const d=document.createElement('div');
