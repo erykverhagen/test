@@ -4145,3 +4145,5 @@ html body.dw-modal-open{overflow:hidden!important;touch-action:none!important}
 #detModal #modalCollectionPicker{position:absolute!important;left:0!important;top:calc(100% + .38rem)!important;z-index:95!important;background:var(--s1)!important;background-color:var(--s1)!important;border:1px solid var(--b2)!important;border-radius:10px!important;box-shadow:0 14px 38px rgba(0,0,0,.58)!important;opacity:1!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 #dwExportTools{margin-top:.8rem!important}
 #dwExportTools .btn-sec{min-height:2rem!important}
+
+/* Dead Wax v19: working v15 baseline with login columns/no arm in JS. */

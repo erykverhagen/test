@@ -14,3 +14,7 @@ Supabase-native Dead Wax app using the latest static interface as the visual con
 - No dead_wax_db.js runtime dependency.
 
 Deploy this as the GitHub Pages repo root.
+
+
+## v19
+Rollback-safe build from working v15 with login converted to a stable two-column no-arm layout.
