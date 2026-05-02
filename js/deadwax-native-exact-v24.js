@@ -231,13 +231,53 @@
         }
       }
 
+
+
+      /* v24 login styleguide pass: tagline, dead wax inscription, right-column rhythm */
+      html body .dw-deadwax-etch{
+        position:absolute!important;
+        inset:4.6%!important;
+        width:auto!important;
+        height:auto!important;
+        border-radius:50%!important;
+        z-index:1!important;
+        pointer-events:none!important;
+        animation:dwRecordSpin 18s linear infinite!important;
+        opacity:.18!important;
+        mix-blend-mode:screen!important;
+      }
+      html body .dw-deadwax-etch text{
+        fill:rgba(240,195,79,.52)!important;
+        letter-spacing:3.4px!important;
+        font-weight:400!important;
+      }
+      html body .dw-auth-intro-kicker,
+      html body .dw-auth-kicker{
+        color:var(--gd)!important;
+        letter-spacing:.22em!important;
+      }
+      html body .dw-auth-intro p{
+        max-width:44ch!important;
+        line-height:1.72!important;
+      }
+      html body .dw-auth-intro{
+        transform:translateY(calc(-50% - 12rem))!important;
+      }
+      html body .dw-auth-panel{
+        transform:translateY(calc(-50% + 6.25rem))!important;
+      }
+      @media(max-width:980px){
+        html body .dw-auth-intro{transform:none!important;}
+        html body .dw-auth-panel{transform:none!important;}
+      }
+
       @media(prefers-reduced-motion:reduce){html body .dw-platter::before,html body .dw-label{animation:none!important}html body .dw-tonearm,html body .dw-deck-btn{transition:none!important}}
     `;
     document.head.appendChild(loginFix);
     const d=document.createElement('div');
     d.id='dwAuth';
     d.className='dw-auth signin';
-    d.innerHTML=`<div class="dw-turntable" role="dialog" aria-modal="true" aria-labelledby="dwAuthTitle"><div class="dw-deck" aria-hidden="true"><div class="dw-platter"><div class="dw-record"></div><div class="dw-label">${dwLogo()}</div><div class="dw-spindle"></div></div></div><div class="dw-tonearm" aria-hidden="true"><div class="dw-pivot"></div></div><section class="dw-auth-intro"><div class="dw-auth-intro-kicker">Private vinyl archive</div><h1 id="dwAuthTitle">Dead Wax</h1><p>Dead Wax is your private record cabinet: shelf IDs, collection labels, listening notes and Discogs details, together in one warm, searchable archive. Drop the needle to start playing.</p></section><section class="dw-auth-panel"><form class="dw-auth-card" id="dwAuthForm"><div class="dw-auth-kicker">Private vinyl archive</div><h1 class="dw-auth-title">Dead Wax</h1><p class="dw-auth-copy">Drop the needle to open your private archive.</p><label for="dwEmail">Email</label><input id="dwEmail" type="email" autocomplete="email" required><label for="dwPassword">Password</label><input id="dwPassword" type="password" autocomplete="current-password" required><div class="dw-deck-controls"><button type="submit" class="dw-deck-btn signin" id="dwSignInBtn">Sign in</button><button type="button" class="dw-deck-btn signup" id="dwSignUp">Sign up</button></div><div class="dw-auth-error" id="dwAuthError"></div></form></section></div>`;
+    d.innerHTML=`<div class="dw-turntable" role="dialog" aria-modal="true" aria-labelledby="dwAuthTitle"><div class="dw-deck" aria-hidden="true"><div class="dw-platter"><div class="dw-record"></div><svg class="dw-deadwax-etch" viewBox="0 0 600 600" aria-hidden="true"><defs><path id="dwLoginDeadwaxArc" d="M300,300 m-125,0 a125,125 0 1,1 250,0 a125,125 0 1,1 -250,0"/></defs><text font-family="Jost, sans-serif" font-size="10"><textPath href="#dwLoginDeadwaxArc" startOffset="0%">IN HONOR OF DAD · SO HIS COLLECTION MAY LIVE FOR GENERATIONS · </textPath></text></svg><div class="dw-label">${dwLogo()}</div><div class="dw-spindle"></div></div></div><div class="dw-tonearm" aria-hidden="true"><div class="dw-pivot"></div></div><section class="dw-auth-intro"><div class="dw-auth-intro-kicker">Your vinyl collection</div><h1 id="dwAuthTitle">Dead Wax</h1><p>Dead Wax is your private record cabinet: shelf IDs, collection labels, listening notes and Discogs details in one warm, searchable collection. Drop the needle to start playing.</p></section><section class="dw-auth-panel"><form class="dw-auth-card" id="dwAuthForm"><div class="dw-auth-kicker">Your vinyl collection</div><h1 class="dw-auth-title">Dead Wax</h1><p class="dw-auth-copy">Sign in to open your private record cabinet.</p><label for="dwEmail">Email</label><input id="dwEmail" type="email" autocomplete="email" required><label for="dwPassword">Password</label><input id="dwPassword" type="password" autocomplete="current-password" required><div class="dw-deck-controls"><button type="submit" class="dw-deck-btn signin" id="dwSignInBtn">Sign in</button><button type="button" class="dw-deck-btn signup" id="dwSignUp">Sign up</button></div><div class="dw-auth-error" id="dwAuthError"></div></form></section></div>`;
     document.body.appendChild(d);
     const setAuthMode=(mode)=>{ d.classList.toggle('signup',mode==='signup'); d.classList.toggle('signin',mode!=='signup'); };
     $('#dwSignInBtn').addEventListener('mouseenter',()=>setAuthMode('signin'));
