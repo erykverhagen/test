@@ -106,12 +106,28 @@
   function dwLoginMark(){
     return `<svg class="dw-login-mark" viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <radialGradient id="g-body-login" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#e8b840"/><stop offset="40%" stop-color="#c8901e"/><stop offset="75%" stop-color="#a87018"/><stop offset="100%" stop-color="#7a5010"/></radialGradient>
-        <radialGradient id="g-dwax-login" cx="42%" cy="38%" r="60%"><stop offset="0%" stop-color="#f0cc60" stop-opacity="0.15"/><stop offset="100%" stop-color="#8a6010" stop-opacity="0.3"/></radialGradient>
-        <radialGradient id="g-lbl-login" cx="36%" cy="34%" r="62%"><stop offset="0%" stop-color="#f8dc70" stop-opacity="0.45"/><stop offset="55%" stop-color="#d09a24" stop-opacity="0"/><stop offset="100%" stop-color="#7a5010" stop-opacity="0.3"/></radialGradient>
-        <path id="m-arc-login" d="M140,140 m-64,0 a64,64 0 1,1 128,0 a64,64 0 1,1 -128,0"/>
+        <radialGradient id="gold-body-login" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#e8b840"/>
+          <stop offset="40%" stop-color="#c8901e"/>
+          <stop offset="75%" stop-color="#a87018"/>
+          <stop offset="100%" stop-color="#7a5010"/>
+        </radialGradient>
+        <radialGradient id="dwax-g-login" cx="42%" cy="38%" r="60%">
+          <stop offset="0%" stop-color="#f0cc60" stop-opacity="0.15"/>
+          <stop offset="100%" stop-color="#8a6010" stop-opacity="0.3"/>
+        </radialGradient>
+        <radialGradient id="lbl-g-login" cx="36%" cy="34%" r="62%">
+          <stop offset="0%" stop-color="#f8dc70" stop-opacity="0.45"/>
+          <stop offset="55%" stop-color="#d09a24" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#7a5010" stop-opacity="0.3"/>
+        </radialGradient>
+        <path id="arc1-login" d="M140,140 m-63,0 a63,63 0 1,1 126,0 a63,63 0 1,1 -126,0"/>
+        <path id="arc2-login" d="M140,140 m-58,0 a58,58 0 1,1 116,0 a58,58 0 1,1 -116,0"/>
       </defs>
-      <circle cx="140" cy="140" r="139" fill="url(#g-body-login)" stroke="#6a4c10" stroke-width="0.8"/>
+
+      <circle cx="140" cy="140" r="139" fill="url(#gold-body-login)" stroke="#6a4c10" stroke-width="0.8"/>
+
+      <!-- Groove field: visible black grooves on gold -->
       <circle cx="140" cy="140" r="134" fill="none" stroke="#0b0906" stroke-width="1.9"/>
       <circle cx="140" cy="140" r="131" fill="none" stroke="#c88020" stroke-width="0.8"/>
       <circle cx="140" cy="140" r="128" fill="none" stroke="#0b0906" stroke-width="1.9"/>
@@ -130,27 +146,39 @@
       <circle cx="140" cy="140" r="89" fill="none" stroke="#906212" stroke-width="0.7"/>
       <circle cx="140" cy="140" r="86" fill="none" stroke="#0b0906" stroke-width="1.5"/>
       <circle cx="140" cy="140" r="83" fill="none" stroke="#886010" stroke-width="0.7"/>
+
+      <!-- Run-out / taper -->
       <circle cx="140" cy="140" r="82" fill="none" stroke="#0b0906" stroke-width="1.2"/>
       <circle cx="140" cy="140" r="80" fill="none" stroke="#806010" stroke-width="0.6"/>
       <circle cx="140" cy="140" r="78" fill="none" stroke="#0b0906" stroke-width="0.9"/>
       <circle cx="140" cy="140" r="76" fill="none" stroke="#786010" stroke-width="0.4"/>
+
+      <!-- Dead wax -->
       <circle cx="140" cy="140" r="74" fill="#c8880c"/>
-      <circle cx="140" cy="140" r="74" fill="url(#g-dwax-login)"/>
+      <circle cx="140" cy="140" r="74" fill="url(#dwax-g-login)"/>
       <circle cx="140" cy="140" r="74" fill="none" stroke="#7a5a10" stroke-width="0.8"/>
       <circle cx="140" cy="140" r="54" fill="none" stroke="#7a5a10" stroke-width="0.5"/>
-      <text font-family="Jost,sans-serif" font-size="4.1" fill="#3a2a08" letter-spacing="1.55" font-weight="400" opacity="0.52">
-        <textPath href="#m-arc-login" startOffset="0%">Dead Wax was made in honor of dad · so his collection may live for generations</textPath>
+
+      <text font-family="Jost,sans-serif" font-size="4.6" fill="#3a2a08" letter-spacing="1.3" font-weight="400" opacity="0.5">
+        <textPath href="#arc1-login" startOffset="13%">Dead Wax was made in honor of dad</textPath>
       </text>
+      <text font-family="Jost,sans-serif" font-size="3.9" fill="#2e2206" letter-spacing="1.1" font-weight="300" opacity="0.38">
+        <textPath href="#arc2-login" startOffset="14%">so his collection may live for generations</textPath>
+      </text>
+
+      <!-- Label -->
       <circle cx="141" cy="141" r="52" fill="#5a3c0a" opacity="0.5"/>
       <circle cx="140" cy="140" r="52" fill="#d09a24"/>
-      <circle cx="140" cy="140" r="52" fill="url(#g-lbl-login)"/>
+      <circle cx="140" cy="140" r="52" fill="url(#lbl-g-login)"/>
       <circle cx="140" cy="140" r="52" fill="none" stroke="#a87218" stroke-width="0.9"/>
       <circle cx="140" cy="140" r="47" fill="none" stroke="#b8861e" stroke-width="0.5" opacity="0.5"/>
       <circle cx="140" cy="140" r="44" fill="none" stroke="#b8861e" stroke-width="0.3" opacity="0.3"/>
+
       <text x="140" y="151" text-anchor="middle" font-family="Cormorant Garamond, serif" font-size="40" font-weight="600" fill="#0b0906" letter-spacing="3">DW</text>
       <circle cx="140" cy="140" r="5" fill="#0b0906" stroke="#6a4c10" stroke-width="0.6"/>
     </svg>`;
   }
+
 
   function ensureAuthShell(){
     if($('#dwAuth')) return;
@@ -360,6 +388,41 @@
       document.head.appendChild(loginSketchFix);
 
     document.head.appendChild(loginFix);
+
+    const visibleAnimatedMarkFix = document.createElement('style');
+    visibleAnimatedMarkFix.textContent = `
+      html body .dw-platter{
+        background:none!important;
+        box-shadow:0 34px 110px rgba(0,0,0,.42)!important;
+      }
+      html body .dw-platter::before,
+      html body .dw-platter::after,
+      html body .dw-record,
+      html body .dw-deadwax-etch{
+        display:none!important;
+        content:none!important;
+      }
+      html body .dw-label{
+        position:absolute!important;
+        inset:0!important;
+        border:0!important;
+        border-radius:50%!important;
+        background:none!important;
+        box-shadow:none!important;
+        animation:dwRecordSpin 28s linear infinite!important;
+        z-index:3!important;
+      }
+      html body .dw-label .dw-login-mark{
+        width:100%!important;
+        height:100%!important;
+        display:block!important;
+        opacity:1!important;
+        filter:drop-shadow(0 18px 46px rgba(0,0,0,.36))!important;
+      }
+      html body .dw-spindle{z-index:5!important}
+    `;
+    document.head.appendChild(visibleAnimatedMarkFix);
+
     const d=document.createElement('div');
     d.id='dwAuth';
     d.className='dw-auth signin';
