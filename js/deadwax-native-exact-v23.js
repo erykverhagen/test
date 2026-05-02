@@ -23,7 +23,14 @@
     random: false,
     cfIndex: 0,
     cfActiveId: null,
-    cfWheelLocked: false,
+    cfPos: 0,
+    cfFlipId: null,
+    cfTurnLock: false,
+    cfWheelAccum: 0,
+    cfManualQueue: 0,
+    cfMomentumPower: 0,
+    cfMomentumDir: 0,
+    cfVelocity: 0,
     collapsed: new Set(),
     filters: {global:'', code:'', artist:'', last:'', first:'', album:'', genre:'', listened:false, doubles:false, rating:'', lastListened:'', grail:false}
   };
@@ -458,41 +465,232 @@
     return entries;
   }
 
-  function renderFlow(){
+  function cfClamp(){
     const entries=flowEntries();
-    const stage=$('#cfStage'), meta=$('#cfMeta');
-    if(!entries.length){ stage.innerHTML='<div class="cf-empty-state">No records found</div>'; meta.innerHTML=''; state.cfIndex=0; state.cfActiveId=null; return; }
+    if(!entries.length){ state.cfIndex=0; state.cfPos=0; state.cfActiveId=null; return entries; }
+    state.cfIndex=Math.max(0,Math.min(Math.round(state.cfIndex||0),entries.length-1));
+    state.cfPos=Math.max(0,Math.min(Number(state.cfPos||state.cfIndex),entries.length-1));
     if(state.cfActiveId){
-      const activeIdx=entries.findIndex(e=>e.record.id===state.cfActiveId);
-      if(activeIdx>=0) state.cfIndex=activeIdx;
+      const hit=entries.findIndex(e=>e.record.id===state.cfActiveId);
+      if(hit>=0){ state.cfIndex=hit; state.cfPos=hit; }
     }
-    state.cfIndex=Math.max(0,Math.min(state.cfIndex,entries.length-1));
-    state.cfActiveId=entries[state.cfIndex].record.id;
-    const pieces=[];
-    for(let off=-4; off<=4; off++){
-      const idx=state.cfIndex+off; if(idx<0||idx>=entries.length) continue;
-      pieces.push(renderFlowCard(entries[idx].record,idx,off));
+    state.cfActiveId=entries[state.cfIndex]?.record?.id || null;
+    return entries;
+  }
+
+  function flowPose(offset){
+    const sign=offset<0?-1:1;
+    const d=Math.abs(offset);
+    if(d<.001) return {x:0,y:0,z:0,rot:0,scale:1,opacity:1};
+    const near=Math.min(d,1);
+    const far=Math.max(0,d-1);
+    return {
+      x: sign*(42 + far*15),
+      y: Math.min(10, far*1.4),
+      z: -165 - far*82,
+      rot: sign*(-58 + Math.min(18,far*3.6)),
+      scale: Math.max(.56,.84 - far*.035),
+      opacity: d>8 ? 0 : Math.max(.18,1 - far*.105)
+    };
+  }
+
+  function flowTransform(p){
+    return `translateX(calc(-50% + ${p.x}%)) translateY(calc(-50% + ${p.y}px)) translateZ(${p.z}px) rotateY(${p.rot}deg) scale(${p.scale})`;
+  }
+
+  function renderFlowDivider(label,offset){
+    const pose=flowPose(offset);
+    return `<div class="cf-divider" style="transform:${flowTransform(pose)};opacity:${Math.max(.2,pose.opacity*.72)};z-index:${Math.max(1,650-Math.round(Math.abs(offset)*10))}"><div class="cf-divider-main"><span class="cf-divider-letter">${esc(label)}</span><span class="cf-divider-sub">Section</span></div></div>`;
+  }
+
+  function renderFlow(){
+    const stage=$('#cfStage'), meta=$('#cfMeta');
+    const entries=cfClamp();
+    if(!stage || !meta) return;
+    if(!entries.length){
+      stage.innerHTML='<div class="cf-empty-state"><h3>No records found</h3><p>Try adjusting your filters.</p></div>';
+      meta.innerHTML='';
+      return;
     }
-    stage.innerHTML=`<div class="cf-stage-rail"></div>${pieces.join('')}`;
-    const entry=entries[state.cfIndex];
+    const center=state.cfPos;
+    const start=Math.max(0,Math.floor(center)-10);
+    const end=Math.min(entries.length-1,Math.ceil(center)+10);
+    const active=entries[state.cfIndex];
+    const pieces=['<div class="cf-stage-rail"></div>'];
+    for(let i=Math.max(1,start);i<=end;i++){
+      if(entries[i].label!==entries[i-1].label){
+        pieces.push(renderFlowDivider(entries[i].label, i-center));
+      }
+    }
+    for(let i=start;i<=end;i++) pieces.push(renderFlowCard(entries[i].record,i,i-center));
+    stage.innerHTML=pieces.join('');
+    updateCoverFlowMeta(active, entries.length);
+  }
+
+  function updateCoverFlowMeta(entry,total){
+    const meta=$('#cfMeta');
+    if(!meta || !entry) return;
     const r=entry.record;
-    meta.innerHTML=`<div class="flow-meta-main"><div class="flow-section-line"><span class="flow-section-pill">${esc(entry.label)}</span></div><div class="flow-meta-code">${esc(recordCode(r))}</div><div class="flow-meta-artist">${esc(r.artist)}</div><div class="flow-meta-album">${esc(r.album)}</div><div class="flow-meta-tags">${tag(r.genre,'g')}${collectionNames(r).slice(0,3).map(x=>tag(x)).join('')}</div><div class="flow-hint">Use arrow keys, wheel or click covers</div></div>`;
+    meta.innerHTML=`<div class="flow-meta-main"><div class="flow-meta-code">${esc(recordCode(r))}</div><div class="flow-meta-artist">${esc(r.artist)}</div><div class="flow-meta-album">${esc(r.album)}</div><div class="flow-meta-tags">${tag(r.genre,'g')}${collectionNames(r).slice(0,3).map(x=>tag(x)).join('')}</div><div class="flow-section-line"><span class="flow-section-pill">${esc(entry.label)}</span><span class="flow-section-pill">${state.cfIndex+1} / ${total}</span></div><div class="flow-hint">Hover the centered cover for the tracklist. Click the centered cover to open details.</div></div>`;
   }
 
-  function renderFlowCard(r,idx,off){
-    const z=100-Math.abs(off), active=off===0;
-    const x=off*55, rot=off*-38, scale=active?1:0.82-Math.abs(off)*0.035, op=Math.abs(off)>3?.35:1;
-    return `<div class="cf-card ${active?'active':''}" data-id="${esc(r.id)}" style="z-index:${z};opacity:${op};transform:translateX(calc(-50% + ${x}%)) translateY(-50%) rotateY(${rot}deg) scale(${scale});" onclick="cfClick('${esc(r.id)}')"><div class="cf-scene card-scene"><div class="card-inner"><div class="card-front"><div class="card-cover">${coverHtml(r)}${r.grail?`<span class="grail-mark">${dwLogo()}</span>`:''}<div class="cf-code">${esc(recordCode(r))}</div></div></div><div class="card-back">${trackBack(r)}</div></div></div><div class="cf-cover-shadow"></div></div>`;
+  function renderFlowCard(r,idx,offset){
+    const active=Math.round(offset)===0;
+    const distance=Math.abs(offset);
+    const pose=flowPose(offset);
+    const flipped=active && state.cfFlipId===r.id;
+    return `<div class="cf-card ${active?'active':''}${distance>8?' off':''} cf-ready" data-id="${esc(r.id)}" style="z-index:${Math.max(1,700-Math.round(distance*10))};opacity:${pose.opacity};transform:${flowTransform(pose)};" onclick="cfClick('${esc(r.id)}',event)"><div class="cf-scene card-scene ${flipped?'flipped':''}"><div class="card-inner"><div class="card-front"><div class="card-cover">${coverHtml(r)}${r.grail?`<span class="grail-mark">${dwLogo()}</span>`:''}<div class="cf-code">${esc(recordCode(r))}</div></div></div><div class="card-back">${trackBack(r)}</div></div></div><div class="cf-cover-shadow"></div></div>`;
   }
 
-  function cfClick(id){
+  function cfStageMoving(on){
+    const stage=$('#cfStage');
+    if(stage) stage.classList.toggle('moving', !!on);
+    if(!on) cfSetMotionBlur(0,0);
+  }
+
+  function cfSetMotionBlur(amount=0, dir=0){
+    const stage=$('#cfStage');
+    if(!stage) return;
+    const a=Math.max(0,Math.min(1,Math.abs(amount)));
+    stage.classList.toggle('cf-motion-blur', a>.035);
+    stage.style.setProperty('--cf-motion-blur', (a*1.15).toFixed(2)+'px');
+    stage.style.setProperty('--cf-active-blur', (a*.42).toFixed(2)+'px');
+    stage.style.setProperty('--cf-motion-smear', (a*.34).toFixed(3));
+    stage.style.setProperty('--cf-motion-dir', dir<0 ? -1 : 1);
+  }
+
+  function cfStopMomentum(){
+    state.cfVelocity=0;
+    state.cfWheelAccum=0;
+    state.cfManualQueue=0;
+    state.cfMomentumPower=0;
+    state.cfMomentumDir=0;
+    state.cfTurnLock=false;
+    cfStageMoving(false);
+  }
+
+  function cfMomentumDelay(){
+    const p=Math.max(0,Math.min(1,state.cfMomentumPower/2.35));
+    return Math.round(30 + (1-p)*118);
+  }
+
+  function cfAddMomentum(delta){
+    const dir=delta<0?-1:1;
+    const impulse=Math.min(3.25,Math.max(.14,Math.abs(delta)/86));
+    if(state.cfMomentumDir && state.cfMomentumDir!==dir) state.cfMomentumPower=0;
+    state.cfMomentumDir=dir;
+    state.cfMomentumPower=Math.min(3.5,Math.max(state.cfMomentumPower*.94,impulse));
+    state.cfVelocity=state.cfMomentumPower*dir;
+    cfSetMotionBlur(Math.min(1,.34 + state.cfMomentumPower*.22),dir);
+    if(!state.cfTurnLock) cfRunMomentumTurn();
+  }
+
+  function cfRunMomentumTurn(){
+    if(state.view!=='flow') return;
+    if(state.cfTurnLock) return;
+    if(state.cfMomentumPower<.18){
+      state.cfMomentumPower=0;
+      state.cfMomentumDir=0;
+      state.cfVelocity=0;
+      cfStageMoving(false);
+      return;
+    }
+    cfPageTurn(state.cfMomentumDir || 1,{momentum:true});
+  }
+
+  function cfCompleteTurn(dir,opts={}){
+    const momentum=!!opts.momentum;
+    if(momentum){
+      state.cfMomentumPower*=.62;
+      state.cfVelocity=state.cfMomentumPower*dir;
+    }
+    const hasMomentum=momentum && state.cfMomentumPower>=.18;
+    const hasManual=state.cfManualQueue!==0;
+    const delay=momentum ? Math.max(34, cfMomentumDelay()-18) : (hasManual?150:230);
+    cfSetMotionBlur(hasMomentum?Math.min(.5,.18+state.cfMomentumPower*.24):.18,dir);
+    window.setTimeout(()=>{
+      state.cfTurnLock=false;
+      if(hasMomentum && state.cfMomentumDir){ cfRunMomentumTurn(); return; }
+      if(state.cfManualQueue!==0){
+        const q=state.cfManualQueue<0?-1:1;
+        state.cfManualQueue-=q;
+        cfPageTurn(q,{momentum:false});
+        return;
+      }
+      cfStageMoving(false);
+    },delay);
+  }
+
+  function cfPageTurn(dir,opts={}){
+    const entries=cfClamp();
+    if(!entries.length) return;
+    dir=dir<0?-1:1;
+    if(state.cfTurnLock){
+      if(opts.momentum){
+        state.cfMomentumDir=dir;
+        state.cfMomentumPower=Math.min(3.5,state.cfMomentumPower);
+      }else{
+        state.cfManualQueue+=dir;
+        state.cfManualQueue=Math.max(-5,Math.min(5,state.cfManualQueue));
+      }
+      return;
+    }
+    const next=Math.max(0,Math.min(entries.length-1,state.cfIndex+dir));
+    if(next===state.cfIndex){
+      state.cfMomentumPower=0;
+      state.cfVelocity=0;
+      state.cfManualQueue=0;
+      cfStageMoving(false);
+      return;
+    }
+    state.cfTurnLock=true;
+    state.cfFlipId=null;
+    state.cfPos=next;
+    state.cfIndex=next;
+    state.cfActiveId=entries[next].record.id;
+    const motionAmount=opts.momentum ? Math.min(1,.38 + state.cfMomentumPower*.20) : .58;
+    cfStageMoving(true);
+    cfSetMotionBlur(motionAmount,dir);
+    renderFlow();
+    window.setTimeout(()=>cfSetMotionBlur(opts.momentum ? Math.min(.62,.14+state.cfMomentumPower*.18) : .28,dir),70);
+    cfCompleteTurn(dir,opts);
+  }
+
+  function cfClick(id,event){
+    if(event?.target?.closest('.tl-dg,a,button')) return;
     const entries=flowEntries();
     const idx=entries.findIndex(e=>e.record.id===id);
     if(idx<0) return;
-    if(idx===state.cfIndex) openRecordById(id);
-    else { state.cfIndex=idx; state.cfActiveId=id; renderFlow(); }
+    if(idx!==state.cfIndex){
+      const dir=idx>state.cfIndex?1:-1;
+      const distance=Math.abs(idx-state.cfIndex);
+      if(distance<=2){ cfPageTurn(dir,{momentum:false}); }
+      else{
+        cfStopMomentum();
+        state.cfPos=idx; state.cfIndex=idx; state.cfActiveId=id; state.cfFlipId=null;
+        cfStageMoving(true); cfSetMotionBlur(.7,dir); renderFlow(); window.setTimeout(()=>cfStageMoving(false),280);
+      }
+      return;
+    }
+    openRecordById(id);
   }
   window.cfClick=cfClick;
+
+  function cfStep(dir){ cfPageTurn(dir,{momentum:false}); }
+
+  function cfHandleWheel(e){
+    if(state.view!=='flow') return;
+    const delta=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+    if(Math.abs(delta)<3) return;
+    e.preventDefault();
+    state.cfWheelAccum+=delta;
+    const threshold=10;
+    if(Math.abs(state.cfWheelAccum)>=threshold){
+      const impulse=state.cfWheelAccum;
+      state.cfWheelAccum*=.08;
+      cfAddMomentum(impulse);
+    }
+  }
 
   function coverHtml(r){
     const u=coverUrl(r);
@@ -1034,24 +1232,12 @@
     $('#fOv')?.addEventListener('click',e=>{ if(e.target.id==='fOv') closeForm(); });
     $('#sOv')?.addEventListener('click',e=>{ if(e.target.id==='sOv') closeSett(); });
     $('#addDiscBtn')?.addEventListener('click',addDisc);
-    function moveFlow(dir){
-      const entries=flowEntries();
-      if(!entries.length) return;
-      state.cfIndex=Math.max(0,Math.min(state.cfIndex + dir, entries.length-1));
-      state.cfActiveId=entries[state.cfIndex]?.record?.id || null;
-      renderFlow();
-    }
-    $('#cfStage')?.addEventListener('wheel',e=>{
-      if(state.view!=='flow') return;
-      e.preventDefault();
-      e.stopPropagation();
-      const axis=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
-      if(Math.abs(axis)<3 || state.cfWheelLocked) return;
-      state.cfWheelLocked=true;
-      moveFlow(axis>0?1:-1);
-      window.setTimeout(()=>{ state.cfWheelLocked=false; }, 115);
-    }, {passive:false});
-    document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeSf(); closeUserMenu(); } if(state.view==='flow' && (e.key==='ArrowRight'||e.key==='ArrowLeft')){ e.preventDefault(); moveFlow(e.key==='ArrowRight'?1:-1); } });
+    $('#cfStage')?.addEventListener('wheel',cfHandleWheel,{passive:false});
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape'){ closeSf(); closeUserMenu(); }
+      if(state.view==='flow' && (e.key==='ArrowRight'||e.key==='ArrowLeft')){ e.preventDefault(); cfStep(e.key==='ArrowRight'?1:-1); }
+      if(state.view==='flow' && (e.key==='Enter'||e.key===' ')){ if(!['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)){ e.preventDefault(); const entries=cfClamp(); const active=entries[state.cfIndex]?.record; if(active) openRecordById(active.id); } }
+    });
     new ResizeObserver(updateHdrH).observe($('#hdr'));
   }
 
